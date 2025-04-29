@@ -283,43 +283,74 @@ if df is not None:
     
  # --- Repeat vs New Customers (Stacked Bar Chart per Month) ---
     if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+        # Add view selection
+        customer_trend_view = st.radio(
+            "Select Customer Analysis View",
+            ("Daily", "Weekly", "Monthly"),
+            horizontal=True,
+            key="customer_analysis_view"  # unique key to avoid conflict with sales trend radio
+        )
+        
         df_sorted = df.sort_values('Date')
         df_sorted['Is New Customer'] = ~df_sorted['Client ID'].duplicated()
         df_sorted['Customer Type'] = df_sorted['Is New Customer'].map({True: 'New Customers', False: 'Existing Customers'})
-        # Group by month instead of week
-        df_sorted['Month'] = df_sorted['Date'].dt.strftime('%Y-%m')
-        monthly_sales = df_sorted.groupby(['Month', 'Customer Type'])['Payment Amount (Numeric)'].sum().unstack(fill_value=0)
-        monthly_sales['Total'] = monthly_sales.sum(axis=1)
-        monthly_sales['New %'] = (monthly_sales['New Customers'] / monthly_sales['Total'] * 100).round(2)
-        monthly_sales['Existing %'] = (monthly_sales['Existing Customers'] / monthly_sales['Total'] * 100).round(2)
+        
+        # Prepare data based on selected view
+        if customer_trend_view == "Daily":
+            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-%m-%d')
+            title = 'Daily New vs. Existing Customers'
+        elif customer_trend_view == "Weekly":
+            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-W%U')
+            title = 'Weekly New vs. Existing Customers'
+        else:  # Monthly
+            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-%m')
+            title = 'Monthly New vs. Existing Customers'
+
+        # Group by selected time period
+        period_sales = df_sorted.groupby(['Time Period', 'Customer Type'])['Payment Amount (Numeric)'].sum().unstack(fill_value=0)
+        period_sales['Total'] = period_sales.sum(axis=1)
+        period_sales['New %'] = (period_sales['New Customers'] / period_sales['Total'] * 100).round(2)
+        period_sales['Existing %'] = (period_sales['Existing Customers'] / period_sales['Total'] * 100).round(2)
 
         # Prepare data for stacked bar chart
         chart_df = pd.DataFrame({
-            'Month': monthly_sales.index,
-            'New Customers': monthly_sales['New %'],
-            'Existing Customers': monthly_sales['Existing %']
+            'Time Period': period_sales.index,
+            'New Customers': period_sales['New %'],
+            'Existing Customers': period_sales['Existing %']
         })
 
         fig = px.bar(
             chart_df,
-            x='Month',
+            x='Time Period',
             y=['New Customers', 'Existing Customers'],
             labels={'value': 'Percentage of Total Sales (%)', 'variable': 'Customer Type'},
-            title='Percentage of Sales from New vs. Existing Customers Each Month',
+            title=f'Percentage of Sales from New vs. Existing Customers ({customer_trend_view})',
             color_discrete_map={
                 'New Customers': '#8ecae6',  # light blue
                 'Existing Customers': '#003366'  # darker blue
             }
         )
+        
+        # Update layout for stacked bar chart
         fig.update_layout(
-            barmode='stack',
+            barmode='stack',  # This ensures it's a stacked bar chart
             xaxis_tickangle=-45,
             yaxis_range=[0, 100],
             showlegend=True,
             legend_title='Customer Type',
             yaxis_title='Percentage of Total Sales (%)',
-            xaxis_title='Month'
+            xaxis_title=f'{customer_trend_view} Period',
+            # Improve hover information
+            hovermode='x unified'
         )
+        
+        # Add hover template
+        fig.update_traces(
+            hovertemplate="%{y:.1f}%<br>",
+            texttemplate="%{y:.1f}%",
+            textposition="inside"
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
