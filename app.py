@@ -410,8 +410,8 @@ if df is not None:
         summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
         summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
 
-                # Format the display columns
-        summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
+        # Format the display columns
+        summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
         summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
         
