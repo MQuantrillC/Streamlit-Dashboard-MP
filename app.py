@@ -356,7 +356,7 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-        # --- Weekly Sales Summary Table ---
+            # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         week_df = df.copy()
         week_df = week_df.set_index('Date').sort_index()
@@ -374,6 +374,7 @@ if df is not None:
             Sales_Amount=('Payment Amount (Numeric)', 'sum'),
             Sales_Amount_per_Day=('Payment Amount (Numeric)', lambda x: round(x.sum() / 7, 2))
         ).reset_index(drop=True)
+        
         # Fill missing dates for empty weeks
         summary['Initial Date'] = bins[:-1]
         summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
@@ -385,21 +386,36 @@ if df is not None:
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
         summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']]
         summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
+        
         st.markdown('**Weekly Sales Summary**')
         
-        # Create a copy of the display summary without formatting for the gradient
+        # Create a copy of the display summary without formatting for the styling
         display_summary = summary.drop(columns=['Sales Amount Numeric'])
-        numeric_summary = display_summary.copy()
-        numeric_summary['Sales Quant per Day'] = pd.to_numeric(numeric_summary['Sales Quant per Day'].str.replace(',', ''), errors='coerce')
         
-        # Apply styling with a custom color gradient
-        styled_summary = display_summary.style.background_gradient(
-            cmap='Greens',
-            subset=['Sales Quant per Day'],
-            vmin=numeric_summary['Sales Quant per Day'].min(),
-            vmax=numeric_summary['Sales Quant per Day'].max(),
-            low=0.1,  # Adjust this value to make light green lighter (0-1)
-            high=0.6  # Adjust this value to make dark green less dark (0-1)
+        # Convert Sales Quant per Day to numeric for comparison
+        numeric_values = pd.to_numeric(display_summary['Sales Quant per Day'].str.replace(',', ''), errors='coerce')
+        max_val = numeric_values.max()
+        min_val = numeric_values.min()
+        
+        # Custom styling function
+        def color_scale(val):
+            try:
+                val = float(val.replace(',', ''))
+                # Calculate the intensity (0 to 1)
+                intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
+                # Create a color scale from light green to medium green
+                # RGB values for light to medium green
+                r = int(233 - (intensity * 100))  # from 233 to 133
+                g = int(247 - (intensity * 50))   # from 247 to 197
+                b = int(236 - (intensity * 100))  # from 236 to 136
+                return f'background-color: rgb({r},{g},{b})'
+            except:
+                return ''
+
+        # Apply the custom styling
+        styled_summary = display_summary.style.applymap(
+            color_scale,
+            subset=['Sales Quant per Day']
         )
         
         st.dataframe(
