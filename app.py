@@ -393,20 +393,20 @@ if df is not None:
     
     summary['Days_in_Period'] = 7
             
-        else:  # Monthly Summary Logic
-            # Group by month
-            summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
-            summary_df['Month'] = summary_df['Date'].dt.to_period('M')
-            summary = summary_df.groupby('Month').agg(
-                Initial_Date=('Date', lambda x: x.min()),
-                Ending_Date=('Date', lambda x: x.max()),
-                Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
-            ).reset_index(drop=True)
+    else:  # Monthly Summary Logic
+        # Group by month
+        summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
+        summary_df['Month'] = summary_df['Date'].dt.to_period('M')
+        summary = summary_df.groupby('Month').agg(
+            Initial_Date=('Date', lambda x: x.min()),
+            Ending_Date=('Date', lambda x: x.max()),
+            Sales_Quantity=('Amount', 'sum'),
+            Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
+        ).reset_index(drop=True)
             
-            # Calculate days in each month for daily averages
-            summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
-                                       pd.to_datetime(summary['Initial_Date'])).dt.days + 1
+        # Calculate days in each month for daily averages
+        summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
+                                    pd.to_datetime(summary['Initial_Date'])).dt.days + 1
 
         # Format dates
         summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
