@@ -354,8 +354,8 @@ if df is not None:
         
         st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
+        st.markdown("<br>", unsafe_allow_html=True)
+
     # --- Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
@@ -386,7 +386,7 @@ if df is not None:
             # Fill missing dates for empty weeks
             summary['Initial Date'] = bins[:-1]
             summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
-            days_in_period = 7
+            summary['Days_in_Period'] = 7
             
         else:  # Monthly Summary Logic
             # Group by month
@@ -401,24 +401,25 @@ if df is not None:
             # Calculate days in each month for daily averages
             summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
                                        pd.to_datetime(summary['Initial_Date'])).dt.days + 1
-            days_in_period = summary['Days_in_Period']
 
         # Format dates
         summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
         summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
         
         # Calculate daily averages
-        summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / days_in_period, 2)
-        summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / days_in_period, 2)
+        summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
+        summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
         
-        # Format the columns
+        # Format the display columns
         summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
         summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
         
         # Select and rename columns
-        summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 
-                         'Sales Amount', 'Sales Amount per Day', 'Sales_Amount_Numeric']]
+        final_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
+                        'Sales Amount', 'Sales Amount per Day', 'Sales_Amount_Numeric']
+        
+        summary = summary[final_columns]
         summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
                          'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
         
