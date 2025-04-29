@@ -410,33 +410,30 @@ if df is not None:
         summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
         summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
 
-        # Format the display columns
+                # Format the display columns
         summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
         summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
         
-        # Select and rename columns
-        final_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
-                        'Sales Amount', 'Sales Amount per Day', 'Sales_Amount_Numeric']
+        # Select and rename columns for display
+        display_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
+                         'Sales Amount', 'Sales Amount per Day']
         
-        summary = summary[final_columns]
-        summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
-                         'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
+        display_summary = summary[display_columns].copy()
+        display_summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
+                                 'Sales Amount', 'Sales Amount per Day']
         
         st.markdown(f'**{summary_view} Sales Summary**')
         
-        # Create a copy of the display summary without formatting for the styling
-        display_summary = summary.drop(columns=['Sales Amount Numeric'])
-        
         # Convert Sales Quant per Day to numeric for comparison
-        numeric_values = pd.to_numeric(display_summary['Sales Quant per Day'].str.replace(',', ''), errors='coerce')
+        numeric_values = display_summary['Sales Quant per Day'].astype(str).str.replace(',', '').astype(float)
         max_val = numeric_values.max()
         min_val = numeric_values.min()
         
         # Custom styling function with darker green colors
         def color_scale(val):
             try:
-                val = float(val.replace(',', ''))
+                val = float(str(val).replace(',', ''))
                 # Calculate the intensity (0 to 1)
                 intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
                 # Create a color scale from light to darker green
