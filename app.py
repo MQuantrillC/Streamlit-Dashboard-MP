@@ -356,38 +356,71 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-            # --- Weekly Sales Summary Table ---
+            # --- Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
-        week_df = df.copy()
-        week_df = week_df.set_index('Date').sort_index()
-        # Start from Monday of the week containing the first sale date
-        first_date = week_df.index.min().normalize()
-        first_monday = first_date - pd.Timedelta(days=first_date.weekday())
-        last_date = week_df.index.max().normalize()
-        # Create weekly bins from first Monday
-        bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
-        summary = week_df.groupby(pd.cut(week_df.index, bins, right=False)).agg(
-            Initial_Date=('Amount', lambda x: x.index.min()),
-            Ending_Date=('Amount', lambda x: x.index.max()),
-            Sales_Quantity=('Amount', 'sum'),
-            Sales_Quantity_per_Day=('Amount', lambda x: round(x.sum() / 7, 2)),
-            Sales_Amount=('Payment Amount (Numeric)', 'sum'),
-            Sales_Amount_per_Day=('Payment Amount (Numeric)', lambda x: round(x.sum() / 7, 2))
-        ).reset_index(drop=True)
+        # Add view selection
+        summary_view = st.radio(
+            "Select Summary View",
+            ("Weekly", "Monthly"),
+            horizontal=True,
+            key="summary_view"
+        )
+
+        summary_df = df.copy()
+        summary_df = summary_df.set_index('Date').sort_index()
+
+        if summary_view == "Weekly":
+            # Weekly Summary Logic
+            first_date = summary_df.index.min().normalize()
+            first_monday = first_date - pd.Timedelta(days=first_date.weekday())
+            last_date = summary_df.index.max().normalize()
+            # Create weekly bins from first Monday
+            bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
+            summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg(
+                Initial_Date=('Amount', lambda x: x.index.min()),
+                Ending_Date=('Amount', lambda x: x.index.max()),
+                Sales_Quantity=('Amount', 'sum'),
+                Sales_Quantity_per_Day=('Amount', lambda x: round(x.sum() / 7, 2)),
+                Sales_Amount=('Payment Amount (Numeric)', 'sum'),
+                Sales_Amount_per_Day=('Payment Amount (Numeric)', lambda x: round(x.sum() / 7, 2))
+            ).reset_index(drop=True)
+            
+            # Fill missing dates for empty weeks
+            summary['Initial Date'] = bins[:-1]
+            summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
+            days_divisor = 7  # for weekly average
+            
+        else:  # Monthly Summary Logic
+            # Group by month
+            summary_df['Month'] = summary_df.index.to_period('M')
+            summary = summary_df.groupby('Month').agg(
+                Initial_Date=('Date', lambda x: x.min()),
+                Ending_Date=('Date', lambda x: x.max()),
+                Sales_Quantity=('Amount', 'sum'),
+                Sales_Amount=('Payment Amount (Numeric)', 'sum')
+            ).reset_index(drop=True)
+            
+            # Calculate days in each month for daily averages
+            summary['Days_in_Period'] = (summary['Ending_Date'] - summary['Initial_Date']).dt.days + 1
+            summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
+            summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount'] / summary['Days_in_Period'], 2)
+            days_divisor = 1  # Already calculated per day
+
+        # Format dates
+        summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
+        summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
         
-        # Fill missing dates for empty weeks
-        summary['Initial Date'] = bins[:-1]
-        summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
-        summary['Initial Date'] = summary['Initial Date'].dt.strftime('%d/%m/%Y')
-        summary['Ending Date'] = summary['Ending Date'].dt.strftime('%d/%m/%Y')
-        summary['Sales Amount Numeric'] = summary['Sales Amount'] = summary['Sales_Amount']
+        # Format other columns
+        summary['Sales Amount Numeric'] = summary['Sales Amount']
         summary['Sales Amount'] = summary['Sales Amount'].apply(lambda x: f"S/.{x:,.0f}")
         summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
+        
+        # Select and rename columns
         summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']]
         summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
         
-        st.markdown('**Weekly Sales Summary**')
+        st.markdown(f'**{summary_view} Sales Summary**')
         
         # Create a copy of the display summary without formatting for the styling
         display_summary = summary.drop(columns=['Sales Amount Numeric'])
@@ -397,17 +430,16 @@ if df is not None:
         max_val = numeric_values.max()
         min_val = numeric_values.min()
         
-        # Custom styling function
+        # Custom styling function with darker green colors
         def color_scale(val):
             try:
                 val = float(val.replace(',', ''))
                 # Calculate the intensity (0 to 1)
                 intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
-                # Create a color scale from light green to medium green
-                # RGB values for light to medium green
-                r = int(233 - (intensity * 100))  # from 233 to 133
-                g = int(247 - (intensity * 50))   # from 247 to 197
-                b = int(236 - (intensity * 100))  # from 236 to 136
+                # Create a color scale from light to darker green
+                r = int(200 - (intensity * 70))   # from 200 to 130
+                g = int(220 - (intensity * 40))   # from 220 to 180
+                b = int(200 - (intensity * 70))   # from 200 to 130
                 return f'background-color: rgb({r},{g},{b})'
             except:
                 return ''
