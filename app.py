@@ -22,11 +22,21 @@ def connect_to_sheets():
              'https://www.googleapis.com/auth/drive']
     
     try:
-        credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        if "gcp_service_account" not in st.secrets:
+            st.error("Could not find gcp_service_account in Streamlit secrets.")
+            return None
+            
+        credentials_dict = dict(st.secrets["gcp_service_account"])
+        if not credentials_dict:
+            st.error("Empty credentials found in Streamlit secrets.")
+            return None
+            
+        credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
         client = gspread.authorize(credentials)
         return client
     except Exception as e:
         st.error(f"Error connecting to Google Sheets: {str(e)}")
+        st.error("Please check your Streamlit secrets configuration.")
         return None
 
 # Function to load data
