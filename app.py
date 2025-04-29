@@ -90,9 +90,9 @@ if df is not None:
             max_date = df['Date'].max()
             col1, col2 = st.sidebar.columns(2)
             with col1:
-                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
+                start_date = st.date_input("Start Date", min_date, min_value=min_date)  # Removed max_value
             with col2:
-                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
+                end_date = st.date_input("End Date", max_date, min_value=min_date)  # Removed max_value
             mask = (df['Date'] >= pd.Timestamp(start_date)) & (df['Date'] <= pd.Timestamp(end_date))
         elif time_frame == "Today":
             mask = df['Date'] == today
