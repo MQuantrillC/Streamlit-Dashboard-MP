@@ -280,7 +280,50 @@ if df is not None:
         st.plotly_chart(fig)
 
     st.markdown("<br>", unsafe_allow_html=True)
+    
+ # --- Repeat vs New Customers (Stacked Bar Chart per Month) ---
+    if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+        df_sorted = df.sort_values('Date')
+        df_sorted['Is New Customer'] = ~df_sorted['Client ID'].duplicated()
+        df_sorted['Customer Type'] = df_sorted['Is New Customer'].map({True: 'New Customers', False: 'Existing Customers'})
+        # Group by month instead of week
+        df_sorted['Month'] = df_sorted['Date'].dt.strftime('%Y-%m')
+        monthly_sales = df_sorted.groupby(['Month', 'Customer Type'])['Payment Amount (Numeric)'].sum().unstack(fill_value=0)
+        monthly_sales['Total'] = monthly_sales.sum(axis=1)
+        monthly_sales['New %'] = (monthly_sales['New Customers'] / monthly_sales['Total'] * 100).round(2)
+        monthly_sales['Existing %'] = (monthly_sales['Existing Customers'] / monthly_sales['Total'] * 100).round(2)
 
+        # Prepare data for stacked bar chart
+        chart_df = pd.DataFrame({
+            'Month': monthly_sales.index,
+            'New Customers': monthly_sales['New %'],
+            'Existing Customers': monthly_sales['Existing %']
+        })
+
+        fig = px.bar(
+            chart_df,
+            x='Month',
+            y=['New Customers', 'Existing Customers'],
+            labels={'value': 'Percentage of Total Sales (%)', 'variable': 'Customer Type'},
+            title='Percentage of Sales from New vs. Existing Customers Each Month',
+            color_discrete_map={
+                'New Customers': '#8ecae6',  # light blue
+                'Existing Customers': '#003366'  # darker blue
+            }
+        )
+        fig.update_layout(
+            barmode='stack',
+            xaxis_tickangle=-45,
+            yaxis_range=[0, 100],
+            showlegend=True,
+            legend_title='Customer Type',
+            yaxis_title='Percentage of Total Sales (%)',
+            xaxis_title='Month'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         week_df = df.copy()
