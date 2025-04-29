@@ -75,7 +75,7 @@ if df is not None:
     # --- Chronological Time Frame Filter ---
     time_frame = st.sidebar.radio(
         "Select Time Frame",
-        ("Today", "This Week", "This Month", "Last 6 Months", "Last Year", "All Time"),
+        ("Today", "This Week", "This Month", "Last 6 Months", "Last Year", "All Time", "Custom Range"),
         index=5
     )
 
@@ -83,7 +83,18 @@ if df is not None:
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'])
         today = pd.Timestamp.today().normalize()
-        if time_frame == "Today":
+        
+        # Add custom date range picker
+        if time_frame == "Custom Range":
+            min_date = df['Date'].min()
+            max_date = df['Date'].max()
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
+            with col2:
+                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
+            mask = (df['Date'] >= pd.Timestamp(start_date)) & (df['Date'] <= pd.Timestamp(end_date))
+        elif time_frame == "Today":
             mask = df['Date'] == today
         elif time_frame == "This Week":
             start = today - pd.Timedelta(days=today.weekday())
