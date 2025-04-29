@@ -230,10 +230,53 @@ if df is not None:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Sales trend graph
+        # Sales trend graph
     if 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
-        daily_sales = df.groupby('Date')['Payment Amount (Numeric)'].sum().reset_index()
-        fig = px.line(daily_sales, x='Date', y='Payment Amount (Numeric)',
-                     title='Daily Sales Trend')
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Add view selection
+        trend_view = st.radio(
+            "Select Sales Trend View",
+            ("Daily", "Weekly", "Monthly"),
+            horizontal=True
+        )
+        
+        # Prepare data based on selected view
+        if trend_view == "Daily":
+            sales_trend = df.groupby('Date')['Payment Amount (Numeric)'].sum().reset_index()
+            title = 'Daily Sales Trend'
+        elif trend_view == "Weekly":
+            sales_trend = df.groupby(pd.Grouper(key='Date', freq='W-MON'))['Payment Amount (Numeric)'].sum().reset_index()
+            title = 'Weekly Sales Trend'
+        else:  # Monthly
+            sales_trend = df.groupby(pd.Grouper(key='Date', freq='M'))['Payment Amount (Numeric)'].sum().reset_index()
+            title = 'Monthly Sales Trend'
+        
+        # Create the plot
+        fig = px.line(sales_trend, x='Date', y='Payment Amount (Numeric)',
+                     title=title)
+        
+        # Update layout for better readability
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Sales Amount (S/.)",
+            hovermode='x unified'
+        )
+        
+        # Add hover template
+        if trend_view == "Daily":
+            fig.update_traces(
+                hovertemplate="Date: %{x|%Y-%m-%d}<br>Sales: S/.%{y:,.2f}<extra></extra>"
+            )
+        elif trend_view == "Weekly":
+            fig.update_traces(
+                hovertemplate="Week of: %{x|%Y-%m-%d}<br>Sales: S/.%{y:,.2f}<extra></extra>"
+            )
+        else:
+            fig.update_traces(
+                hovertemplate="Month: %{x|%Y-%m}<br>Sales: S/.%{y:,.2f}<extra></extra>"
+            )
+        
         st.plotly_chart(fig)
 
     st.markdown("<br>", unsafe_allow_html=True)
