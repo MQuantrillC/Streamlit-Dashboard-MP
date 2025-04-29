@@ -384,18 +384,20 @@ if df is not None:
             ).reset_index(drop=True)
             
             # Fill missing dates for empty weeks
-            summary['Initial Date'] = bins[:-1]
-            summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
-            summary['Days_in_Period'] = 7
+            summary['Initial Date'] = summary['Initial_Date'].fillna(bins[:-1])
+            summary['Ending Date'] = summary['Ending_Date'].fillna(bins[1:] - pd.Timedelta(days=1))
+            summary['Sales_Quantity'] = summary['Sales_Quantity'].fillna(0)
+            summary['Sales_Amount_Numeric'] = summary['Sales_Amount_Numeric'].fillna(0)
             
         else:  # Monthly Summary Logic
             # Group by month
-            summary_df['Month'] = summary_df.index.to_period('M')
+            summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
+            summary_df['Month'] = summary_df['Date'].dt.to_period('M')
             summary = summary_df.groupby('Month').agg(
                 Initial_Date=('Date', lambda x: x.min()),
                 Ending_Date=('Date', lambda x: x.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')  # Changed this line
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
             ).reset_index(drop=True)
             
             # Calculate days in each month for daily averages
