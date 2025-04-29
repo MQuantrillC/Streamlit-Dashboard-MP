@@ -280,15 +280,15 @@ if df is not None:
         st.plotly_chart(fig)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    
- # --- Repeat vs New Customers (Stacked Bar Chart per Month) ---
+        
+    # --- Repeat vs New Customers Analysis ---
     if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
         customer_trend_view = st.radio(
             "Select Customer Analysis View",
             ("Daily", "Weekly", "Monthly"),
             horizontal=True,
-            key="customer_analysis_view"  # unique key to avoid conflict with sales trend radio
+            key="customer_analysis_view"
         )
         
         df_sorted = df.sort_values('Date')
@@ -333,29 +333,30 @@ if df is not None:
         
         # Update layout for stacked bar chart
         fig.update_layout(
-            barmode='stack',  # This ensures it's a stacked bar chart
+            barmode='stack',
             xaxis_tickangle=-45,
             yaxis_range=[0, 100],
             showlegend=True,
             legend_title='Customer Type',
             yaxis_title='Percentage of Total Sales (%)',
             xaxis_title=f'{customer_trend_view} Period',
-            # Improve hover information
             hovermode='x unified'
         )
         
-        # Add hover template
-        fig.update_traces(
-            hovertemplate="%{y:.1f}%<br>",
-            texttemplate="%{y:.1f}%",
-            textposition="inside"
-        )
+        # Update traces with dynamic text position based on percentage value
+        for trace in fig.data:
+            text_positions = ['outside' if val < 15 else 'inside' for val in trace.y]
+            trace.update(
+                texttemplate='%{y:.1f}%',
+                textposition=text_positions,
+                hovertemplate="%{y:.1f}%<br>"
+            )
         
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- Weekly Sales Summary Table ---
+        # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         week_df = df.copy()
         week_df = week_df.set_index('Date').sort_index()
@@ -385,10 +386,24 @@ if df is not None:
         summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']]
         summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
         st.markdown('**Weekly Sales Summary**')
-        # Just show the table, no color
+        
+        # Create a copy of the display summary without formatting for the gradient
         display_summary = summary.drop(columns=['Sales Amount Numeric'])
+        numeric_summary = display_summary.copy()
+        numeric_summary['Sales Quant per Day'] = pd.to_numeric(numeric_summary['Sales Quant per Day'].str.replace(',', ''), errors='coerce')
+        
+        # Apply styling with a custom color gradient
+        styled_summary = display_summary.style.background_gradient(
+            cmap='Greens',
+            subset=['Sales Quant per Day'],
+            vmin=numeric_summary['Sales Quant per Day'].min(),
+            vmax=numeric_summary['Sales Quant per Day'].max(),
+            low=0.1,  # Adjust this value to make light green lighter (0-1)
+            high=0.6  # Adjust this value to make dark green less dark (0-1)
+        )
+        
         st.dataframe(
-            display_summary,
+            styled_summary,
             use_container_width=True
         )
 
