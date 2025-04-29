@@ -356,7 +356,7 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-            # --- Sales Summary Table ---
+    # --- Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
         summary_view = st.radio(
@@ -380,15 +380,13 @@ if df is not None:
                 Initial_Date=('Amount', lambda x: x.index.min()),
                 Ending_Date=('Amount', lambda x: x.index.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Quantity_per_Day=('Amount', lambda x: round(x.sum() / 7, 2)),
-                Sales_Amount=('Payment Amount (Numeric)', 'sum'),
-                Sales_Amount_per_Day=('Payment Amount (Numeric)', lambda x: round(x.sum() / 7, 2))
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
             ).reset_index(drop=True)
             
             # Fill missing dates for empty weeks
             summary['Initial Date'] = bins[:-1]
             summary['Ending Date'] = bins[1:] - pd.Timedelta(days=1)
-            days_divisor = 7  # for weekly average
+            days_in_period = 7
             
         else:  # Monthly Summary Logic
             # Group by month
@@ -397,28 +395,32 @@ if df is not None:
                 Initial_Date=('Date', lambda x: x.min()),
                 Ending_Date=('Date', lambda x: x.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount=('Payment Amount (Numeric)', 'sum')
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
             ).reset_index(drop=True)
             
             # Calculate days in each month for daily averages
-            summary['Days_in_Period'] = (summary['Ending_Date'] - summary['Initial_Date']).dt.days + 1
-            summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
-            summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount'] / summary['Days_in_Period'], 2)
-            days_divisor = 1  # Already calculated per day
+            summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
+                                       pd.to_datetime(summary['Initial_Date'])).dt.days + 1
+            days_in_period = summary['Days_in_Period']
 
         # Format dates
         summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
         summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
         
-        # Format other columns
-        summary['Sales Amount Numeric'] = summary['Sales Amount']
-        summary['Sales Amount'] = summary['Sales Amount'].apply(lambda x: f"S/.{x:,.0f}")
+        # Calculate daily averages
+        summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / days_in_period, 2)
+        summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / days_in_period, 2)
+        
+        # Format the columns
+        summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
         summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
         summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
         
         # Select and rename columns
-        summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']]
-        summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
+        summary = summary[['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day', 
+                         'Sales Amount', 'Sales Amount per Day', 'Sales_Amount_Numeric']]
+        summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
+                         'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
         
         st.markdown(f'**{summary_view} Sales Summary**')
         
