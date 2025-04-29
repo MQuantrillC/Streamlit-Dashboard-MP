@@ -380,14 +380,18 @@ if df is not None:
                 Initial_Date=('Amount', lambda x: x.index.min()),
                 Ending_Date=('Amount', lambda x: x.index.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')  # Changed this line
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
             ).reset_index(drop=True)
-            
-            # Fill missing dates for empty weeks
-            summary['Initial Date'] = summary['Initial_Date'].fillna(bins[:-1])
-            summary['Ending Date'] = summary['Ending_Date'].fillna(bins[1:] - pd.Timedelta(days=1))
-            summary['Sales_Quantity'] = summary['Sales_Quantity'].fillna(0)
-            summary['Sales_Amount_Numeric'] = summary['Sales_Amount_Numeric'].fillna(0)
+    
+    # Fill missing dates for empty weeks
+    for i in range(len(summary)):
+        if pd.isna(summary.loc[i, 'Initial_Date']):
+            summary.loc[i, 'Initial_Date'] = bins[i]
+            summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
+            summary.loc[i, 'Sales_Quantity'] = 0
+            summary.loc[i, 'Sales_Amount_Numeric'] = 0
+    
+    summary['Days_in_Period'] = 7
             
         else:  # Monthly Summary Logic
             # Group by month
@@ -439,9 +443,9 @@ if df is not None:
                 # Calculate the intensity (0 to 1)
                 intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
                 # Create a color scale from light to darker green
-                r = int(200 - (intensity * 70))   # from 200 to 130
-                g = int(220 - (intensity * 40))   # from 220 to 180
-                b = int(200 - (intensity * 70))   # from 200 to 130
+                r = int(180 - (intensity * 100))   # from 180 to 80
+                g = int(200 - (intensity * 60))    # from 200 to 140
+                b = int(180 - (intensity * 100))   # from 180 to 80
                 return f'background-color: rgb({r},{g},{b})'
             except:
                 return ''
