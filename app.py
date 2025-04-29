@@ -383,26 +383,26 @@ if df is not None:
                 Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
             ).reset_index(drop=True)
     
-    # Fill missing dates for empty weeks
-    for i in range(len(summary)):
-        if pd.isna(summary.loc[i, 'Initial_Date']):
-            summary.loc[i, 'Initial_Date'] = bins[i]
-            summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
-            summary.loc[i, 'Sales_Quantity'] = 0
-            summary.loc[i, 'Sales_Amount_Numeric'] = 0
-    
-    summary['Days_in_Period'] = 7
+            # Fill missing dates for empty weeks
+            for i in range(len(summary)):
+                if pd.isna(summary.loc[i, 'Initial_Date']):
+                    summary.loc[i, 'Initial_Date'] = bins[i]
+                    summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
+                    summary.loc[i, 'Sales_Quantity'] = 0
+                    summary.loc[i, 'Sales_Amount_Numeric'] = 0
             
-    else:  # Monthly Summary Logic
-        # Group by month
-        summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
-        summary_df['Month'] = summary_df['Date'].dt.to_period('M')
-        summary = summary_df.groupby('Month').agg(
-            Initial_Date=('Date', lambda x: x.min()),
-            Ending_Date=('Date', lambda x: x.max()),
-            Sales_Quantity=('Amount', 'sum'),
-            Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
-        ).reset_index(drop=True)
+            summary['Days_in_Period'] = 7
+            
+        else:  # Monthly Summary Logic
+            # Group by month
+            summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
+            summary_df['Month'] = summary_df['Date'].dt.to_period('M')
+            summary = summary_df.groupby('Month').agg(
+                Initial_Date=('Date', lambda x: x.min()),
+                Ending_Date=('Date', lambda x: x.max()),
+                Sales_Quantity=('Amount', 'sum'),
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
+            ).reset_index(drop=True)
             
         # Calculate days in each month for daily averages
         summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
