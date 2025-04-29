@@ -356,7 +356,7 @@ if df is not None:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- Sales Summary Table ---
+        # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
         summary_view = st.radio(
@@ -380,7 +380,7 @@ if df is not None:
                 Initial_Date=('Amount', lambda x: x.index.min()),
                 Ending_Date=('Amount', lambda x: x.index.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')  # Changed this line
             ).reset_index(drop=True)
             
             # Fill missing dates for empty weeks
@@ -395,7 +395,7 @@ if df is not None:
                 Initial_Date=('Date', lambda x: x.min()),
                 Ending_Date=('Date', lambda x: x.max()),
                 Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
+                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')  # Changed this line
             ).reset_index(drop=True)
             
             # Calculate days in each month for daily averages
@@ -409,54 +409,6 @@ if df is not None:
         # Calculate daily averages
         summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
         summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
-        
-        # Format the display columns
-        summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
-        summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
-        summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
-        
-        # Select and rename columns
-        final_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
-                        'Sales Amount', 'Sales Amount per Day', 'Sales_Amount_Numeric']
-        
-        summary = summary[final_columns]
-        summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
-                         'Sales Amount', 'Sales Amount per Day', 'Sales Amount Numeric']
-        
-        st.markdown(f'**{summary_view} Sales Summary**')
-        
-        # Create a copy of the display summary without formatting for the styling
-        display_summary = summary.drop(columns=['Sales Amount Numeric'])
-        
-        # Convert Sales Quant per Day to numeric for comparison
-        numeric_values = pd.to_numeric(display_summary['Sales Quant per Day'].str.replace(',', ''), errors='coerce')
-        max_val = numeric_values.max()
-        min_val = numeric_values.min()
-        
-        # Custom styling function with darker green colors
-        def color_scale(val):
-            try:
-                val = float(val.replace(',', ''))
-                # Calculate the intensity (0 to 1)
-                intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
-                # Create a color scale from light to darker green
-                r = int(200 - (intensity * 70))   # from 200 to 130
-                g = int(220 - (intensity * 40))   # from 220 to 180
-                b = int(200 - (intensity * 70))   # from 200 to 130
-                return f'background-color: rgb({r},{g},{b})'
-            except:
-                return ''
-
-        # Apply the custom styling
-        styled_summary = display_summary.style.applymap(
-            color_scale,
-            subset=['Sales Quant per Day']
-        )
-        
-        st.dataframe(
-            styled_summary,
-            use_container_width=True
-        )
 
     # --- Inventory Analytics ---
     try:
