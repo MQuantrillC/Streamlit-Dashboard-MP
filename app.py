@@ -526,9 +526,10 @@ if df is not None:
             monthly_groups = summary_df.groupby(summary_df['Date'].dt.to_period('M'))
             
             for month, month_data in monthly_groups:
-                start_date = month_data['Date'].min()
-                end_date = month_data['Date'].max()
-                days_in_period = (end_date - start_date).days + 1
+                # Get first and last day of the calendar month
+                start_date = month.to_timestamp()  # This gives first day of month
+                end_date = (month.to_timestamp() + pd.offsets.MonthEnd(0))  # This gives last day of month
+                days_in_period = (end_date - start_date).days + 1  # +1 because both start and end dates are inclusive
                 
                 sales_quantity = month_data['Amount'].sum()
                 sales_amount = month_data['Payment Amount (Numeric)'].sum()
