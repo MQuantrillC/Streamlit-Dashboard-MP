@@ -687,7 +687,7 @@ if df is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # --- Find and extract Current Inventory table anywhere in the sheet ---
+            # --- Current Inventory table ---
             curr_inv_row = inventory_df.apply(lambda row: row.str.contains('Current Inventory', na=False)).any(axis=1)
             curr_inv_start = curr_inv_row[curr_inv_row].index[0]
             curr_inv_header = inventory_df.iloc[curr_inv_start].tolist()
@@ -698,41 +698,46 @@ if df is not None:
                 first_col = 0
                 last_col = len(curr_inv_header)
             curr_inv_header = curr_inv_header[first_col:last_col]
-            curr_inv_table = inventory_df.iloc[curr_inv_start+1:curr_inv_start+6, first_col-1:last_col]  # include first column for index
+            curr_inv_table = inventory_df.iloc[curr_inv_start+1:curr_inv_start+6, first_col-1:last_col]
             curr_inv_table.columns = ['Index'] + curr_inv_header
             curr_inv_table = curr_inv_table.loc[:, ~curr_inv_table.columns.duplicated()]
             curr_inv_table = curr_inv_table.reset_index(drop=True)
-            
+
             # Convert numeric columns to float
             numeric_columns = curr_inv_header
             for col in numeric_columns:
                 curr_inv_table[col] = pd.to_numeric(curr_inv_table[col], errors='coerce').fillna(0)
-            
+
             # Calculate column totals
             totals = curr_inv_table[numeric_columns].sum()
             total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
-            plus_new_table = pd.concat([curr_inv_table, total_row])
-            
+            curr_inv_table = pd.concat([curr_inv_table, total_row])
+
             # Set first column as index (nicotine levels)
-            plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
-            plus_new_table.index.name = None
-            
-            # Style the table with differences and bold totals
-            def style_diff_and_total(df):
+            curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
+            curr_inv_table.index.name = None
+
+            # Style the table with color gradients and bold totals
+            def style_curr_inv(df):
                 # Create an empty DataFrame of strings with the same shape as our data
                 styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
                 
-                # Add yellow background to differences (except in total row)
+                # Add color gradients based on thresholds (except for Total Mg column and Total Flavour row)
                 for idx in df.index:
                     if idx != 'Total Flavour':
                         for col in df.columns:
-                            if col in curr_inv_table.columns and col != 'Total Mg':
+                            if col != 'Total Mg':
                                 try:
-                                    if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
-                                        styles.loc[idx, col] = 'background-color: yellow'
+                                    val = float(df.loc[idx, col])
+                                    if val >= 30:
+                                        styles.loc[idx, col] = 'background-color: #90EE90; color: black'  # light green
+                                    elif 15 <= val <= 29:
+                                        styles.loc[idx, col] = 'background-color: #FFB347; color: black'  # orange
+                                    elif val <= 14:
+                                        styles.loc[idx, col] = 'background-color: #FFB6B6; color: black'  # light red
                                 except:
                                     pass
-                
+
                 # Make Total Flavour row and Total Mg column bold with larger font and distinct styling
                 total_style = 'font-weight: 900; font-size: 20px; background-color: #2C3E50; color: white; border: 2px solid #ECF0F1;'
                 for col in df.columns:
@@ -741,13 +746,40 @@ if df is not None:
                         for idx in df.index:
                             current_style = styles.loc[idx, col]
                             styles.loc[idx, col] = current_style + '; ' + total_style if current_style else total_style
-                
+
                 return styles
-            
-            styled_plus_new = plus_new_table.style.apply(style_diff_and_total, axis=None)
-            
-            st.markdown('### Current + New Orders (differences highlighted)')
-            st.dataframe(styled_plus_new, use_container_width=True)
+
+            styled_curr_inv = curr_inv_table.style.apply(style_curr_inv, axis=None)
+            st.markdown('### Current Inventory')
+            st.dataframe(styled_curr_inv, use_container_width=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # --- Current + New Orders table ---
+            plus_new_row = inventory_df.apply(lambda row: row.str.contains('Current \+ New Orders', na=False)).any(axis=1)
+            plus_new_start = plus_new_row[plus_new_row].index[0]
+            plus_new_header = inventory_df.iloc[plus_new_start].tolist()
+            try:
+                first_col = plus_new_header.index('Spearmint')
+                last_col = plus_new_header.index('Total Mg') + 1
+            except ValueError:
+                first_col = 0
+                last_col = len(plus_new_header)
+            plus_new_header = plus_new_header[first_col:last_col]
+            plus_new_table = inventory_df.iloc[plus_new_start+1:plus_new_start+6, first_col-1:last_col]
+            plus_new_table.columns = ['Index'] + plus_new_header
+            plus_new_table = plus_new_table.loc[:, ~plus_new_table.columns.duplicated()]
+            plus_new_table = plus_new_table.reset_index(drop=True)
+
+            # Convert numeric columns to float
+            numeric_columns = plus_new_header
+            for col in numeric_columns:
+                plus_new_table[col] = pd.to_numeric(plus_new_table[col], errors='coerce').fillna(0)
+
+            # Calculate column totals
+            totals = plus_new_table[numeric_columns].sum()
+            total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
+            plus_new_table = pd.concat([plus_new_table, total_row])
 
     except Exception as e:
         st.warning(f"Could not load inventory analytics: {e}")
