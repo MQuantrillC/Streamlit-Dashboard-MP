@@ -447,37 +447,44 @@ if df is not None:
         )
 
         summary_df = df.copy()
-        summary_df['Date'] = pd.to_datetime(summary_df['Date'])  # Ensure dates are datetime
+        # Ensure dates are datetime and normalized to midnight
+        summary_df['Date'] = pd.to_datetime(summary_df['Date']).dt.normalize()
 
         if summary_view == "Weekly":
             # Weekly Summary Logic
-            first_date = summary_df['Date'].min().normalize()
+            first_date = summary_df['Date'].min()
             # Ensure we start from Monday
             first_monday = first_date - pd.Timedelta(days=first_date.weekday())
-            last_date = summary_df['Date'].max().normalize()
+            last_date = summary_df['Date'].max()
             
             # Create weekly bins from first Monday to last date
             bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='W-MON')
             
             # Create summary DataFrame with proper date handling
             summary_data = []
-            week_num = 1  # To keep track of week numbers
+            week_num = 1
             
             for start_date in bins[:-1]:  # Exclude the last bin edge
                 end_date = start_date + pd.Timedelta(days=6)  # End date is Sunday
                 
-                # Use inclusive range (>= start_date AND <= end_date) to match Excel's SUMIFS
-                mask = (summary_df['Date'].dt.normalize() >= start_date) & (summary_df['Date'].dt.normalize() <= end_date)
-                week_data = summary_df[mask]
+                # Filter data for the week using inclusive range to match Excel's SUMIFS
+                week_data = summary_df[
+                    (summary_df['Date'] >= start_date) & 
+                    (summary_df['Date'] <= end_date)
+                ]
+                
+                # Calculate sales quantity and amount
+                sales_quantity = len(week_data)
+                sales_amount = week_data['Payment Amount (Numeric)'].sum()
                 
                 # Only include weeks that have data or are within our date range
-                if not week_data.empty or start_date <= last_date:
+                if start_date <= last_date:
                     summary_data.append({
                         'Week': week_num,
                         'Initial_Date': start_date.strftime('%d/%m/%Y'),
                         'Ending_Date': end_date.strftime('%d/%m/%Y'),
-                        'Sales_Quantity': len(week_data),
-                        'Sales_Amount': week_data['Payment Amount (Numeric)'].sum(),
+                        'Sales_Quantity': sales_quantity,
+                        'Sales_Amount': sales_amount,
                         'Days_in_Period': 7
                     })
                     week_num += 1
