@@ -683,11 +683,30 @@ if df is not None:
             curr_inv_table.columns = ['Index'] + curr_inv_header
             curr_inv_table = curr_inv_table.loc[:, ~curr_inv_table.columns.duplicated()]
             curr_inv_table = curr_inv_table.reset_index(drop=True)
+            
+            # Convert numeric columns to float
+            numeric_columns = curr_inv_header
+            for col in numeric_columns:
+                curr_inv_table[col] = pd.to_numeric(curr_inv_table[col], errors='coerce').fillna(0)
+            
+            # Calculate column totals
+            totals = curr_inv_table[numeric_columns].sum()
+            total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
+            curr_inv_table = pd.concat([curr_inv_table, total_row])
+            
             # Set first column as index (nicotine levels)
             curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
             curr_inv_table.index.name = None
+            
+            # Style the table with the total row highlighted
+            def style_total_row(row):
+                if row.name == 'Total Flavour':
+                    return ['background-color: rgba(255, 255, 0, 0.2)'] * len(row)
+                return [''] * len(row)
+            
+            styled_curr_inv = curr_inv_table.style.apply(style_total_row, axis=1)
             st.markdown('### Current Inventory')
-            st.dataframe(curr_inv_table, use_container_width=True)
+            st.dataframe(styled_curr_inv, use_container_width=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -706,18 +725,31 @@ if df is not None:
             plus_new_table.columns = ['Index'] + plus_new_header
             plus_new_table = plus_new_table.loc[:, ~plus_new_table.columns.duplicated()]
             plus_new_table = plus_new_table.reset_index(drop=True)
+            
+            # Convert numeric columns to float
+            numeric_columns = plus_new_header
+            for col in numeric_columns:
+                plus_new_table[col] = pd.to_numeric(plus_new_table[col], errors='coerce').fillna(0)
+            
+            # Calculate column totals
+            totals = plus_new_table[numeric_columns].sum()
+            total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
+            plus_new_table = pd.concat([plus_new_table, total_row])
+            
             # Set first column as index (nicotine levels)
             plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
             plus_new_table.index.name = None
-            # --- Highlight differences ---
-            def highlight_diff(val, ref):
-                try:
-                    return 'background-color: yellow' if str(val) != str(ref) else ''
-                except:
-                    return ''
-            styled_plus_new = plus_new_table.style.apply(
-                lambda x: [highlight_diff(x[c], curr_inv_table.loc[x.name, c]) if c in curr_inv_table.columns else '' for c in plus_new_table.columns], axis=1
+            
+            # Style the table with differences and total row highlighted
+            def style_diff_and_total(row):
+                if row.name == 'Total Flavour':
+                    return ['background-color: rgba(255, 255, 0, 0.2)'] * len(row)
+                return [''] * len(row)
+            
+            styled_plus_new = plus_new_table.style.apply(style_diff_and_total, axis=1).apply(
+                lambda x: [highlight_diff(x[c], curr_inv_table.loc[x.name, c]) if c in curr_inv_table.columns and x.name != 'Total Flavour' else '' for c in plus_new_table.columns], axis=1
             )
+            
             st.markdown('### Current + New Orders (differences highlighted)')
             st.dataframe(styled_plus_new, use_container_width=True)
 
