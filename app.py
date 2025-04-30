@@ -403,17 +403,28 @@ if df is not None:
                 end = (start + pd.offsets.MonthEnd(1))
                 return start, end
             
-            # Get unique months in the data
-            months = summary_df['Date'].dt.to_period('M').unique()
+            # Get the date range to consider
+            if time_frame == "Custom Range":
+                start_date = pd.Timestamp(start_date)
+                end_date = pd.Timestamp(end_date)
+                # Get the first day of the first month and last day of the last month
+                first_month_start = start_date.replace(day=1)
+                last_month_end = end_date.replace(day=1) + pd.offsets.MonthEnd(1)
+                # Only include months that fall completely within the range
+                months = pd.date_range(start=first_month_start, end=last_month_end, freq='M')
+                # Filter out partial months
+                months = [m for m in months if (m.replace(day=1) >= start_date) and ((m + pd.offsets.MonthEnd(1)) <= end_date)]
+            else:
+                # For other time frames, use all months in the data
+                months = summary_df['Date'].dt.to_period('M').unique()
+            
             monthly_data = []
             
             for month in months:
-                month_start, month_end = get_month_bounds(month.to_timestamp())
-                
-                # For custom range, only include months that fall completely within the range
-                if time_frame == "Custom Range":
-                    if month_start < pd.Timestamp(start_date) or month_end > pd.Timestamp(end_date):
-                        continue
+                if isinstance(month, pd.Period):
+                    month_start, month_end = get_month_bounds(month.to_timestamp())
+                else:
+                    month_start, month_end = get_month_bounds(month)
                 
                 # Get data for this month
                 month_data = summary_df[
