@@ -653,16 +653,35 @@ if df is not None:
             loc_table.columns = loc_header
             loc_table = loc_table.loc[:, ~loc_table.columns.duplicated()]
             loc_table = loc_table.reset_index(drop=True)
-            # Highlight low inventory (<10) in a more visible red
-            def highlight_low(val):
+
+            # Convert numeric columns to float for calculations
+            numeric_cols = loc_table.columns[1:]  # All columns except 'Location'
+            for col in numeric_cols:
+                loc_table[col] = pd.to_numeric(loc_table[col], errors='coerce').fillna(0)
+
+            # Calculate column totals
+            totals = loc_table[numeric_cols].sum()
+            total_row = pd.DataFrame([['Total Location'] + list(totals)], columns=loc_table.columns)
+            loc_table = pd.concat([loc_table, total_row], ignore_index=True)
+
+            # Highlight low inventory (<10) in a more visible red and style totals
+            def highlight_low_and_totals(val, is_total_row=False):
                 try:
-                    return 'background-color: #ff3333; color: white;' if float(val) < 10 else ''
+                    if is_total_row:
+                        return 'font-weight: 900; font-size: 20px; background-color: #2C3E50; color: white; border: 2px solid #ECF0F1;'
+                    num_val = float(val)
+                    return 'background-color: #ff3333; color: white;' if num_val < 10 else ''
                 except:
                     return ''
+
             # Set 'Location' as index to remove the default index column
             if 'Location' in loc_table.columns:
                 loc_table = loc_table.set_index('Location')
-            styled_loc = loc_table.style.applymap(highlight_low, subset=[col for col in loc_table.columns if col not in ['Total']])
+
+            # Apply styling
+            styled_loc = loc_table.style.apply(lambda x: [highlight_low_and_totals(v, i == len(x)-1) 
+                                                        for i, v in enumerate(x)], axis=0)
+
             st.markdown('### Inventory by Location')
             st.dataframe(styled_loc, use_container_width=True)
 
@@ -692,75 +711,7 @@ if df is not None:
             # Calculate column totals
             totals = curr_inv_table[numeric_columns].sum()
             total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
-            curr_inv_table = pd.concat([curr_inv_table, total_row])
-            
-            # Set first column as index (nicotine levels)
-            curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
-            curr_inv_table.index.name = None
-            
-            # Style the table with color gradients and bold totals
-            def style_curr_inv(df):
-                # Create an empty DataFrame of strings with the same shape as our data
-                styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
-                
-                # Add color gradients based on thresholds (except for Total Mg column and Total Flavour row)
-                for idx in df.index:
-                    if idx != 'Total Flavour':
-                        for col in df.columns:
-                            if col != 'Total Mg':
-                                try:
-                                    val = float(df.loc[idx, col])
-                                    if val >= 30:
-                                        styles.loc[idx, col] = 'background-color: #90EE90; color: black'  # light green
-                                    elif 15 <= val <= 29:
-                                        styles.loc[idx, col] = 'background-color: #FFB347; color: black'  # orange
-                                    elif val <= 14:
-                                        styles.loc[idx, col] = 'background-color: #FFB6B6; color: black'  # light red
-                                except:
-                                    pass
-                
-                # Make Total Flavour row and Total Mg column bold with larger font and distinct styling
-                total_style = 'font-weight: 900; font-size: 20px; background-color: #2C3E50; color: white; border: 2px solid #ECF0F1;'
-                for col in df.columns:
-                    styles.loc['Total Flavour', col] = total_style
-                    if col == 'Total Mg':
-                        for idx in df.index:
-                            current_style = styles.loc[idx, col]
-                            styles.loc[idx, col] = current_style + '; ' + total_style if current_style else total_style
-                
-                return styles
-            
-            styled_curr_inv = curr_inv_table.style.apply(style_curr_inv, axis=None)
-            st.markdown('### Current Inventory')
-            st.dataframe(styled_curr_inv, use_container_width=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Find and extract Current + New Orders table anywhere in the sheet ---
-            plus_new_row = inventory_df.apply(lambda row: row.str.contains('Current \+ New Orders', na=False)).any(axis=1)
-            plus_new_start = plus_new_row[plus_new_row].index[0]
-            plus_new_header = inventory_df.iloc[plus_new_start].tolist()
-            try:
-                first_col = plus_new_header.index('Spearmint')
-                last_col = plus_new_header.index('Total Mg') + 1
-            except ValueError:
-                first_col = 0
-                last_col = len(plus_new_header)
-            plus_new_header = plus_new_header[first_col:last_col]
-            plus_new_table = inventory_df.iloc[plus_new_start+1:plus_new_start+6, first_col-1:last_col]  # include first column for index
-            plus_new_table.columns = ['Index'] + plus_new_header
-            plus_new_table = plus_new_table.loc[:, ~plus_new_table.columns.duplicated()]
-            plus_new_table = plus_new_table.reset_index(drop=True)
-            
-            # Convert numeric columns to float
-            numeric_columns = plus_new_header
-            for col in numeric_columns:
-                plus_new_table[col] = pd.to_numeric(plus_new_table[col], errors='coerce').fillna(0)
-            
-            # Calculate column totals
-            totals = plus_new_table[numeric_columns].sum()
-            total_row = pd.DataFrame([['Total Flavour'] + list(totals)], columns=['Index'] + numeric_columns)
-            plus_new_table = pd.concat([plus_new_table, total_row])
+            plus_new_table = pd.concat([curr_inv_table, total_row])
             
             # Set first column as index (nicotine levels)
             plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
