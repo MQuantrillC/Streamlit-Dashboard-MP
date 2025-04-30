@@ -457,24 +457,26 @@ if df is not None:
             # Create weekly bins from first Monday
             bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
             
-            # Group by week and calculate metrics
-            summary = pd.DataFrame()
+            # Create the interval index for grouping
             weekly_groups = pd.cut(summary_df.index, bins, right=False)
-            summary['Payment Amount (Numeric)'] = summary_df.groupby(weekly_groups)['Payment Amount (Numeric)'].sum()
-            summary['Sales_Quantity'] = summary_df.groupby(weekly_groups).size()
-            summary = summary.reset_index()
             
-            # Add date columns
+            # Group by week and calculate metrics
+            summary = pd.DataFrame({
+                'Sales_Amount': summary_df.groupby(weekly_groups)['Payment Amount (Numeric)'].sum(),
+                'Sales_Quantity': summary_df.groupby(weekly_groups).size()
+            }).reset_index()
+            
+            # Add date columns using the interval information
             summary['Initial_Date'] = summary['Date'].apply(lambda x: x.left.strftime('%d/%m/%Y'))
             summary['Ending_Date'] = summary['Date'].apply(lambda x: (x.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'))
             summary['Days_in_Period'] = 7
             
             # Calculate daily averages
             summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
-            summary['Sales_Amount_per_Day'] = (summary['Payment Amount (Numeric)'] / summary['Days_in_Period']).round(2)
+            summary['Sales_Amount_per_Day'] = (summary['Sales_Amount'] / summary['Days_in_Period']).round(2)
             
             # Format display columns
-            summary['Sales Amount'] = summary['Payment Amount (Numeric)'].apply(lambda x: f"S/.{x:,.0f}")
+            summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
             summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
             summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
             
