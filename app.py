@@ -473,8 +473,8 @@ if df is not None:
                     (summary_df['Date'] <= end_date)
                 ]
                 
-                # Calculate sales quantity and amount
-                sales_quantity = len(week_data)
+                # Calculate sales quantity by summing the Amount column
+                sales_quantity = week_data['Amount'].sum()
                 sales_amount = week_data['Payment Amount (Numeric)'].sum()
                 
                 # Only include weeks that have data or are within our date range
@@ -516,6 +516,59 @@ if df is not None:
                 # Display the table
                 st.markdown(f'**{summary_view} Sales Summary**')
                 st.dataframe(display_summary, use_container_width=True)
+            else:
+                st.warning("No data available for the selected time period.")
+        elif summary_view == "Monthly":
+            # Monthly Summary Logic
+            monthly_data = []
+            
+            # Group by month
+            monthly_groups = summary_df.groupby(summary_df['Date'].dt.to_period('M'))
+            
+            for month, month_data in monthly_groups:
+                start_date = month_data['Date'].min()
+                end_date = month_data['Date'].max()
+                days_in_period = (end_date - start_date).days + 1
+                
+                sales_quantity = month_data['Amount'].sum()
+                sales_amount = month_data['Payment Amount (Numeric)'].sum()
+                
+                monthly_data.append({
+                    'Month': month.strftime('%B %Y'),
+                    'Initial_Date': start_date.strftime('%d/%m/%Y'),
+                    'Ending_Date': end_date.strftime('%d/%m/%Y'),
+                    'Sales_Quantity': sales_quantity,
+                    'Sales_Amount': sales_amount,
+                    'Days_in_Period': days_in_period
+                })
+            
+            monthly_summary = pd.DataFrame(monthly_data)
+            
+            if not monthly_summary.empty:
+                # Calculate daily averages
+                monthly_summary['Sales_Quantity_per_Day'] = (monthly_summary['Sales_Quantity'] / monthly_summary['Days_in_Period']).round(2)
+                monthly_summary['Sales_Amount_per_Day'] = (monthly_summary['Sales_Amount'] / monthly_summary['Days_in_Period']).round(2)
+                
+                # Format display columns
+                monthly_summary['Sales Amount'] = monthly_summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
+                monthly_summary['Sales Amount per Day'] = monthly_summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:.2f}")
+                monthly_summary['Sales Quant per Day'] = monthly_summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
+                
+                # Select and order columns for display
+                display_columns = [
+                    'Month', 'Initial_Date', 'Ending_Date', 'Sales_Quantity',
+                    'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+                ]
+                
+                display_monthly = monthly_summary[display_columns].copy()
+                display_monthly.columns = [
+                    'Month', 'Initial Date', 'Ending Date', 'Sales Quantity',
+                    'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+                ]
+                
+                # Display the table
+                st.markdown(f'**{summary_view} Sales Summary**')
+                st.dataframe(display_monthly, use_container_width=True)
             else:
                 st.warning("No data available for the selected time period.")
 
