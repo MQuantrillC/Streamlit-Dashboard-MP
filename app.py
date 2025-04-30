@@ -461,16 +461,20 @@ if df is not None:
             weekly_groups = pd.cut(summary_df.index, bins, right=False)
             
             # Group by week and calculate metrics
-            summary = pd.DataFrame({
-                'Sales_Amount': summary_df.groupby(weekly_groups)['Payment Amount (Numeric)'].sum(),
-                'Sales_Quantity': summary_df.groupby(weekly_groups).size(),
-                'Week_Interval': weekly_groups.unique()
-            })
+            grouped = summary_df.groupby(weekly_groups)
             
-            # Add date columns using the interval information
-            summary['Initial_Date'] = summary['Week_Interval'].apply(lambda x: x.left.strftime('%d/%m/%Y'))
-            summary['Ending_Date'] = summary['Week_Interval'].apply(lambda x: (x.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'))
-            summary['Days_in_Period'] = 7
+            # Create summary DataFrame with proper date handling
+            summary_data = []
+            for interval, group in grouped:
+                summary_data.append({
+                    'Initial_Date': interval.left.strftime('%d/%m/%Y'),
+                    'Ending_Date': (interval.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'),
+                    'Sales_Quantity': len(group),
+                    'Sales_Amount': group['Payment Amount (Numeric)'].sum(),
+                    'Days_in_Period': 7
+                })
+            
+            summary = pd.DataFrame(summary_data)
             
             # Calculate daily averages
             summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
