@@ -698,13 +698,38 @@ if df is not None:
             curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
             curr_inv_table.index.name = None
             
-            # Style the table with bold total row
-            def style_total_row(row):
-                if row.name == 'Total Flavour':
-                    return ['font-weight: bold'] * len(row)
-                return [''] * len(row)
+            # Style the table with color gradients and bold totals
+            def style_curr_inv(df):
+                # Create an empty DataFrame of strings with the same shape as our data
+                styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
+                
+                # Add color gradients based on thresholds (except for Total Mg column and Total Flavour row)
+                for idx in df.index:
+                    if idx != 'Total Flavour':
+                        for col in df.columns:
+                            if col != 'Total Mg':
+                                try:
+                                    val = float(df.loc[idx, col])
+                                    if val >= 30:
+                                        styles.loc[idx, col] = 'background-color: #90EE90; color: black'  # light green
+                                    elif 15 <= val <= 29:
+                                        styles.loc[idx, col] = 'background-color: #FFB347; color: black'  # orange
+                                    elif val <= 14:
+                                        styles.loc[idx, col] = 'background-color: #FFB6B6; color: black'  # light red
+                                except:
+                                    pass
+                
+                # Make Total Flavour row and Total Mg column bold with larger font
+                for col in df.columns:
+                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 15px'
+                    if col == 'Total Mg':
+                        for idx in df.index:
+                            current_style = styles.loc[idx, col]
+                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 15px' if current_style else 'font-weight: 900; font-size: 15px'
+                
+                return styles
             
-            styled_curr_inv = curr_inv_table.style.apply(style_total_row, axis=1)
+            styled_curr_inv = curr_inv_table.style.apply(style_curr_inv, axis=None)
             st.markdown('### Current Inventory')
             st.dataframe(styled_curr_inv, use_container_width=True)
 
@@ -740,28 +765,29 @@ if df is not None:
             plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
             plus_new_table.index.name = None
             
-            # Define highlight_diff function
-            def highlight_diff(val, ref):
-                try:
-                    return 'background-color: yellow' if float(val) != float(ref) else ''
-                except:
-                    return ''
-            
-            # Style the table with differences and bold total row
+            # Style the table with differences and bold totals
             def style_diff_and_total(df):
                 # Create an empty DataFrame of strings with the same shape as our data
                 styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
-                
-                # Add bold style to total row
-                styles.loc['Total Flavour'] = 'font-weight: bold'
                 
                 # Add yellow background to differences (except in total row)
                 for idx in df.index:
                     if idx != 'Total Flavour':
                         for col in df.columns:
-                            if col in curr_inv_table.columns:
-                                if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
-                                    styles.loc[idx, col] = 'background-color: yellow'
+                            if col in curr_inv_table.columns and col != 'Total Mg':
+                                try:
+                                    if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
+                                        styles.loc[idx, col] = 'background-color: yellow'
+                                except:
+                                    pass
+                
+                # Make Total Flavour row and Total Mg column bold with larger font
+                for col in df.columns:
+                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 15px'
+                    if col == 'Total Mg':
+                        for idx in df.index:
+                            current_style = styles.loc[idx, col]
+                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 15px' if current_style else 'font-weight: 900; font-size: 15px'
                 
                 return styles
             
