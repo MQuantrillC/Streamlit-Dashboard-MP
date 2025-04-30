@@ -5,6 +5,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+import json
 
 # Page config
 st.set_page_config(
@@ -90,9 +91,9 @@ if df is not None:
             max_date = df['Date'].max()
             col1, col2 = st.sidebar.columns(2)
             with col1:
-                start_date = st.date_input("Start Date", min_date, min_value=min_date)  # Removed max_value
+                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
             with col2:
-                end_date = st.date_input("End Date", max_date, min_value=min_date)  # Removed max_value
+                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
             mask = (df['Date'] >= pd.Timestamp(start_date)) & (df['Date'] <= pd.Timestamp(end_date))
         elif time_frame == "Today":
             mask = df['Date'] == today
@@ -229,135 +230,214 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Sales trend graph
-        # Sales trend graph
+    # --- Sales Trend Analysis ---
     if 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("## 📈 Sales Trend Analysis")
         
-        # Add view selection
+        # Add view selection with better styling
         trend_view = st.radio(
             "Select Sales Trend View",
             ("Daily", "Weekly", "Monthly"),
-            horizontal=True
+            horizontal=True,
+            label_visibility="collapsed"
         )
         
         # Prepare data based on selected view
         if trend_view == "Daily":
             sales_trend = df.groupby('Date')['Payment Amount (Numeric)'].sum().reset_index()
             title = 'Daily Sales Trend'
+            freq = 'D'
         elif trend_view == "Weekly":
             sales_trend = df.groupby(pd.Grouper(key='Date', freq='W-MON'))['Payment Amount (Numeric)'].sum().reset_index()
             title = 'Weekly Sales Trend'
+            freq = 'W'
         else:  # Monthly
             sales_trend = df.groupby(pd.Grouper(key='Date', freq='M'))['Payment Amount (Numeric)'].sum().reset_index()
             title = 'Monthly Sales Trend'
+            freq = 'M'
         
-        # Create the plot
-        fig = px.line(sales_trend, x='Date', y='Payment Amount (Numeric)',
-                     title=title)
+        # Create the plot with enhanced styling
+        fig = go.Figure()
+        
+        # Add the main sales line
+        fig.add_trace(go.Scatter(
+            x=sales_trend['Date'],
+            y=sales_trend['Payment Amount (Numeric)'],
+            mode='lines+markers',
+            name='Sales',
+            line=dict(color='#1f77b4', width=2),
+            marker=dict(size=6, color='#1f77b4')
+        ))
+        
+        # Add moving average based on the selected frequency
+        if freq == 'D':
+            window = 7  # 7-day moving average for daily view
+        elif freq == 'W':
+            window = 4  # 4-week moving average for weekly view
+        else:
+            window = 3  # 3-month moving average for monthly view
+            
+        sales_trend['Moving Average'] = sales_trend['Payment Amount (Numeric)'].rolling(window=window).mean()
+        
+        fig.add_trace(go.Scatter(
+            x=sales_trend['Date'],
+            y=sales_trend['Moving Average'],
+            mode='lines',
+            name=f'{window}-Period Moving Average',
+            line=dict(color='#ff7f0e', width=2, dash='dash')
+        ))
         
         # Update layout for better readability
         fig.update_layout(
-            xaxis_title="Date",
-            yaxis_title="Sales Amount (S/.)",
-            hovermode='x unified'
+            title=dict(
+                text=title,
+                font=dict(size=24, color='white'),
+                x=0.5,
+                y=0.95
+            ),
+            xaxis=dict(
+                title="Date",
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                tickangle=-45
+            ),
+            yaxis=dict(
+                title="Sales Amount (S/.)",
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                tickprefix="S/. "
+            ),
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(t=100)
         )
         
         # Add hover template
         if trend_view == "Daily":
             fig.update_traces(
-                hovertemplate="Date: %{x|%Y-%m-%d}<br>Sales: S/.%{y:,.2f}<extra></extra>"
+                hovertemplate="<b>Date</b>: %{x|%Y-%m-%d}<br>" +
+                             "<b>Sales</b>: S/.%{y:,.2f}<extra></extra>"
             )
         elif trend_view == "Weekly":
             fig.update_traces(
-                hovertemplate="Week of: %{x|%Y-%m-%d}<br>Sales: S/.%{y:,.2f}<extra></extra>"
+                hovertemplate="<b>Week of</b>: %{x|%Y-%m-%d}<br>" +
+                             "<b>Sales</b>: S/.%{y:,.2f}<extra></extra>"
             )
         else:
             fig.update_traces(
-                hovertemplate="Month: %{x|%Y-%m}<br>Sales: S/.%{y:,.2f}<extra></extra>"
-            )
-        
-        st.plotly_chart(fig)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-        
-    # --- Repeat vs New Customers Analysis ---
-    if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
-        # Add view selection
-        customer_trend_view = st.radio(
-            "Select Customer Analysis View",
-            ("Daily", "Weekly", "Monthly"),
-            horizontal=True,
-            key="customer_analysis_view"
-        )
-        
-        df_sorted = df.sort_values('Date')
-        df_sorted['Is New Customer'] = ~df_sorted['Client ID'].duplicated()
-        df_sorted['Customer Type'] = df_sorted['Is New Customer'].map({True: 'New Customers', False: 'Existing Customers'})
-        
-        # Prepare data based on selected view
-        if customer_trend_view == "Daily":
-            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-%m-%d')
-            title = 'Daily New vs. Existing Customers'
-        elif customer_trend_view == "Weekly":
-            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-W%U')
-            title = 'Weekly New vs. Existing Customers'
-        else:  # Monthly
-            df_sorted['Time Period'] = df_sorted['Date'].dt.strftime('%Y-%m')
-            title = 'Monthly New vs. Existing Customers'
-
-        # Group by selected time period
-        period_sales = df_sorted.groupby(['Time Period', 'Customer Type'])['Payment Amount (Numeric)'].sum().unstack(fill_value=0)
-        period_sales['Total'] = period_sales.sum(axis=1)
-        period_sales['New %'] = (period_sales['New Customers'] / period_sales['Total'] * 100).round(2)
-        period_sales['Existing %'] = (period_sales['Existing Customers'] / period_sales['Total'] * 100).round(2)
-
-        # Prepare data for stacked bar chart
-        chart_df = pd.DataFrame({
-            'Time Period': period_sales.index,
-            'New Customers': period_sales['New %'],
-            'Existing Customers': period_sales['Existing %']
-        })
-
-        fig = px.bar(
-            chart_df,
-            x='Time Period',
-            y=['New Customers', 'Existing Customers'],
-            labels={'value': 'Percentage of Total Sales (%)', 'variable': 'Customer Type'},
-            title=f'Percentage of Sales from New vs. Existing Customers ({customer_trend_view})',
-            color_discrete_map={
-                'New Customers': '#8ecae6',  # light blue
-                'Existing Customers': '#003366'  # darker blue
-            }
-        )
-        
-        # Update layout for stacked bar chart
-        fig.update_layout(
-            barmode='stack',
-            xaxis_tickangle=-45,
-            yaxis_range=[0, 100],
-            showlegend=True,
-            legend_title='Customer Type',
-            yaxis_title='Percentage of Total Sales (%)',
-            xaxis_title=f'{customer_trend_view} Period',
-            hovermode='x unified'
-        )
-        
-        # Update traces with dynamic text position based on percentage value
-        for trace in fig.data:
-            text_positions = ['outside' if val < 15 else 'inside' for val in trace.y]
-            trace.update(
-                texttemplate='%{y:.1f}%',
-                textposition=text_positions,
-                hovertemplate="%{y:.1f}%<br>"
+                hovertemplate="<b>Month</b>: %{x|%Y-%m}<br>" +
+                             "<b>Sales</b>: S/.%{y:,.2f}<extra></extra>"
             )
         
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- Customer Analysis ---
+    if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+        st.markdown("## 👥 Customer Analysis")
+        
+        df_sorted = df.sort_values('Date')
+        df_sorted['Is New Customer'] = ~df_sorted['Client ID'].duplicated()
+        df_sorted['Customer Type'] = df_sorted['Is New Customer'].map({True: 'New Customers', False: 'Existing Customers'})
+        
+        # Group by month
+        df_sorted['Month'] = df_sorted['Date'].dt.strftime('%Y-%m')
+        monthly_sales = df_sorted.groupby(['Month', 'Customer Type'])['Payment Amount (Numeric)'].sum().unstack(fill_value=0)
+        monthly_sales['Total'] = monthly_sales.sum(axis=1)
+        monthly_sales['New %'] = (monthly_sales['New Customers'] / monthly_sales['Total'] * 100).round(2)
+        monthly_sales['Existing %'] = (monthly_sales['Existing Customers'] / monthly_sales['Total'] * 100).round(2)
+
+        # Prepare data for stacked bar chart
+        chart_df = pd.DataFrame({
+            'Month': monthly_sales.index,
+            'New Customers': monthly_sales['New %'],
+            'Existing Customers': monthly_sales['Existing %']
+        })
+
+        # Create the stacked bar chart with enhanced styling
+        fig = go.Figure()
+        
+        # Add bars for each customer type
+        fig.add_trace(go.Bar(
+            x=chart_df['Month'],
+            y=chart_df['New Customers'],
+            name='New Customers',
+            marker_color='#8ecae6'  # light blue
+        ))
+        
+        fig.add_trace(go.Bar(
+            x=chart_df['Month'],
+            y=chart_df['Existing Customers'],
+            name='Existing Customers',
+            marker_color='#003366'  # darker blue
+        ))
+
+        # Update layout for better readability
+        fig.update_layout(
+            title=dict(
+                text='Customer Distribution by Month',
+                font=dict(size=24, color='white'),
+                x=0.5,
+                y=0.95
+            ),
+            xaxis=dict(
+                title="Month",
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                tickangle=-45
+            ),
+            yaxis=dict(
+                title="Percentage of Total Sales (%)",
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                range=[0, 100]
+            ),
+            barmode='stack',
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(t=100)
+        )
+
+        # Add hover template
+        fig.update_traces(
+            hovertemplate="<b>Month</b>: %{x}<br>" +
+                         "<b>Percentage</b>: %{y:.2f}%<br>" +
+                         "<b>Customer Type</b>: %{fullData.name}<extra></extra>"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Add summary statistics
+        col1, col2 = st.columns(2)
+        with col1:
+            avg_new_customers = chart_df['New Customers'].mean()
+            st.metric("Average New Customer Percentage", f"{avg_new_customers:.1f}%")
+        with col2:
+            avg_existing_customers = chart_df['Existing Customers'].mean()
+            st.metric("Average Existing Customer Percentage", f"{avg_existing_customers:.1f}%")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # --- Weekly Sales Summary Table ---
-    if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+    if 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
         summary_view = st.radio(
             "Select Summary View",
@@ -376,101 +456,95 @@ if df is not None:
             last_date = summary_df.index.max().normalize()
             # Create weekly bins from first Monday
             bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
-            summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg(
-                Initial_Date=('Amount', lambda x: x.index.min()),
-                Ending_Date=('Amount', lambda x: x.index.max()),
-                Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
-            ).reset_index(drop=True)
-    
-            # Fill missing dates for empty weeks
-            for i in range(len(summary)):
-                if pd.isna(summary.loc[i, 'Initial_Date']):
-                    summary.loc[i, 'Initial_Date'] = bins[i]
-                    summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
-                    summary.loc[i, 'Sales_Quantity'] = 0
-                    summary.loc[i, 'Sales_Amount_Numeric'] = 0
+            summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg({
+                'Payment Amount (Numeric)': 'sum'
+            }).reset_index()
             
+            # Add date columns
+            summary['Initial_Date'] = summary['Date'].apply(lambda x: x.left.strftime('%d/%m/%Y'))
+            summary['Ending_Date'] = summary['Date'].apply(lambda x: (x.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'))
             summary['Days_in_Period'] = 7
+            summary['Sales_Quantity'] = summary.index + 1  # Week number
+            
+            # Calculate daily averages
+            summary['Sales_Quantity_per_Day'] = summary['Sales_Quantity'] / summary['Days_in_Period']
+            summary['Sales_Amount_per_Day'] = summary['Payment Amount (Numeric)'] / summary['Days_in_Period']
+            
+            # Format display columns
+            summary['Sales Amount'] = summary['Payment Amount (Numeric)'].apply(lambda x: f"S/.{x:,.0f}")
+            summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
+            summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
+            
+            # Select and order columns for display
+            display_columns = [
+                'Initial_Date', 'Ending_Date', 'Sales_Quantity',
+                'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+            ]
+            
+            display_summary = summary[display_columns].copy()
+            display_summary.columns = [
+                'Initial Date', 'Ending Date', 'Sales Quantity',
+                'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+            ]
+            
+            # Display the table
+            st.markdown(f'**{summary_view} Sales Summary**')
+            st.dataframe(display_summary, use_container_width=True)
             
         else:  # Monthly Summary Logic
             # Reset index to get 'Date' as column
             summary_df = summary_df.reset_index()
             
-            # Function to get the first and last day of a month
-            def get_month_bounds(date):
-                start = date.replace(day=1)
-                end = (start + pd.offsets.MonthEnd(1))
-                return start, end
-            
-            # Get the date range to consider
-            if time_frame == "Custom Range":
-                start_date = pd.Timestamp(start_date)
-                end_date = pd.Timestamp(end_date)
-                # Get the first day of the first month and last day of the last month
-                first_month_start = start_date.replace(day=1)
-                last_month_end = end_date.replace(day=1) + pd.offsets.MonthEnd(1)
-                # Only include months that fall completely within the range
-                months = pd.date_range(start=first_month_start, end=last_month_end, freq='M')
-                # Filter out partial months
-                months = [m for m in months if (m.replace(day=1) >= start_date) and ((m + pd.offsets.MonthEnd(1)) <= end_date)]
-            else:
-                # For other time frames, use all months in the data
-                months = summary_df['Date'].dt.to_period('M').unique()
-            
+            # Get unique months in the data
             monthly_data = []
             
-            for month in months:
-                if isinstance(month, pd.Period):
-                    month_start, month_end = get_month_bounds(month.to_timestamp())
-                else:
-                    month_start, month_end = get_month_bounds(month)
+            # Group by month
+            monthly_groups = summary_df.groupby(summary_df['Date'].dt.to_period('M'))
+            
+            for month, month_data in monthly_groups:
+                month_start = month_data['Date'].min().replace(day=1)
+                month_end = (month_start + pd.offsets.MonthEnd(1))
                 
-                # Get data for this month
-                month_data = summary_df[
-                    (summary_df['Date'] >= month_start) & 
-                    (summary_df['Date'] <= month_end)
-                ]
+                # For custom range, only include months that fall completely within the range
+                if time_frame == "Custom Range":
+                    if month_start < pd.Timestamp(start_date) or month_end > pd.Timestamp(end_date):
+                        continue
                 
-                if not month_data.empty:
-                    monthly_data.append({
-                        'Initial_Date': month_start,
-                        'Ending_Date': month_end,
-                        'Sales_Quantity': month_data['Amount'].sum(),
-                        'Sales_Amount_Numeric': month_data['Payment Amount (Numeric)'].sum(),
-                        'Days_in_Period': (month_end - month_start).days + 1
-                    })
+                monthly_data.append({
+                    'Initial_Date': month_start.strftime('%d/%m/%Y'),
+                    'Ending_Date': month_end.strftime('%d/%m/%Y'),
+                    'Sales_Quantity': len(month_data),
+                    'Sales_Amount': month_data['Payment Amount (Numeric)'].sum(),
+                    'Days_in_Period': (month_end - month_start).days + 1
+                })
             
             if monthly_data:
                 summary = pd.DataFrame(monthly_data)
                 
-                # Format dates
-                summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
-                summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
-                
                 # Calculate daily averages
-                summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
-                summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
-
+                summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
+                summary['Sales_Amount_per_Day'] = (summary['Sales_Amount'] / summary['Days_in_Period']).round(2)
+                
                 # Format the display columns
-                summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
+                summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
                 summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
                 summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
                 
-                # Select and rename columns for display
-                display_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
-                                'Sales Amount', 'Sales Amount per Day']
+                # Select and order columns for display
+                display_columns = [
+                    'Initial_Date', 'Ending_Date', 'Sales_Quantity', 
+                    'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+                ]
                 
                 display_summary = summary[display_columns].copy()
-                display_summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
-                                        'Sales Amount', 'Sales Amount per Day']
-                
-                # Apply styling
-                styled_summary = display_summary.style.background_gradient(subset=['Sales Quant per Day'], cmap='Greens')
+                display_summary.columns = [
+                    'Initial Date', 'Ending Date', 'Sales Quantity',
+                    'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
+                ]
                 
                 # Display the table
                 st.markdown(f'**{summary_view} Sales Summary**')
-                st.dataframe(styled_summary, use_container_width=True)
+                st.dataframe(display_summary, use_container_width=True)
             else:
                 st.warning("No complete months found in the selected date range.")
 
@@ -495,7 +569,14 @@ if df is not None:
                 first_col = 0
                 last_col = len(loc_header)
             loc_header = loc_header[first_col:last_col]
-            loc_table = inventory_df.iloc[loc_start+1:loc_start+15, first_col:last_col]
+            # Dynamically find the end of the inventory table
+            end_row = loc_start + 1
+            while end_row < len(inventory_df):
+                row_val = str(inventory_df.iloc[end_row, first_col]).strip()
+                if row_val == '' or 'Total Inventory' in row_val:
+                    break
+                end_row += 1
+            loc_table = inventory_df.iloc[loc_start+1:end_row, first_col:last_col]
             loc_table.columns = loc_header
             loc_table = loc_table.loc[:, ~loc_table.columns.duplicated()]
             loc_table = loc_table.reset_index(drop=True)
@@ -505,7 +586,10 @@ if df is not None:
                     return 'background-color: #ff3333; color: white;' if float(val) < 10 else ''
                 except:
                     return ''
-            styled_loc = loc_table.style.applymap(highlight_low, subset=[col for col in loc_table.columns if col not in ['Location', 'Total']])
+            # Set 'Location' as index to remove the default index column
+            if 'Location' in loc_table.columns:
+                loc_table = loc_table.set_index('Location')
+            styled_loc = loc_table.style.applymap(highlight_low, subset=[col for col in loc_table.columns if col not in ['Total']])
             st.markdown('### Inventory by Location')
             st.dataframe(styled_loc, use_container_width=True)
 
@@ -522,10 +606,13 @@ if df is not None:
                 first_col = 0
                 last_col = len(curr_inv_header)
             curr_inv_header = curr_inv_header[first_col:last_col]
-            curr_inv_table = inventory_df.iloc[curr_inv_start+1:curr_inv_start+6, first_col:last_col]
-            curr_inv_table.columns = curr_inv_header
+            curr_inv_table = inventory_df.iloc[curr_inv_start+1:curr_inv_start+6, first_col-1:last_col]  # include first column for index
+            curr_inv_table.columns = ['Index'] + curr_inv_header
             curr_inv_table = curr_inv_table.loc[:, ~curr_inv_table.columns.duplicated()]
             curr_inv_table = curr_inv_table.reset_index(drop=True)
+            # Set first column as index (nicotine levels)
+            curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
+            curr_inv_table.index.name = None
             st.markdown('### Current Inventory')
             st.dataframe(curr_inv_table, use_container_width=True)
 
@@ -542,11 +629,13 @@ if df is not None:
                 first_col = 0
                 last_col = len(plus_new_header)
             plus_new_header = plus_new_header[first_col:last_col]
-            plus_new_table = inventory_df.iloc[plus_new_start+1:plus_new_start+6, first_col:last_col]
-            plus_new_table.columns = plus_new_header
+            plus_new_table = inventory_df.iloc[plus_new_start+1:plus_new_start+6, first_col-1:last_col]  # include first column for index
+            plus_new_table.columns = ['Index'] + plus_new_header
             plus_new_table = plus_new_table.loc[:, ~plus_new_table.columns.duplicated()]
             plus_new_table = plus_new_table.reset_index(drop=True)
-
+            # Set first column as index (nicotine levels)
+            plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
+            plus_new_table.index.name = None
             # --- Highlight differences ---
             def highlight_diff(val, ref):
                 try:
@@ -554,7 +643,7 @@ if df is not None:
                 except:
                     return ''
             styled_plus_new = plus_new_table.style.apply(
-                lambda x: [highlight_diff(x[c], curr_inv_table.iloc[x.name, plus_new_table.columns.get_loc(c)]) if c in curr_inv_table.columns else '' for c in plus_new_table.columns], axis=1
+                lambda x: [highlight_diff(x[c], curr_inv_table.loc[x.name, c]) if c in curr_inv_table.columns else '' for c in plus_new_table.columns], axis=1
             )
             st.markdown('### Current + New Orders (differences highlighted)')
             st.dataframe(styled_plus_new, use_container_width=True)
