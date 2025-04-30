@@ -452,27 +452,33 @@ if df is not None:
         if summary_view == "Weekly":
             # Weekly Summary Logic
             first_date = summary_df.index.min().normalize()
+            # Ensure we start from Monday
             first_monday = first_date - pd.Timedelta(days=first_date.weekday())
             last_date = summary_df.index.max().normalize()
-            # Create weekly bins from first Monday
-            bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
             
-            # Create the interval index for grouping
-            weekly_groups = pd.cut(summary_df.index, bins, right=False)
-            
-            # Group by week and calculate metrics
-            grouped = summary_df.groupby(weekly_groups)
+            # Create weekly bins from first Monday to last date
+            bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='W-MON')
             
             # Create summary DataFrame with proper date handling
             summary_data = []
-            for interval, group in grouped:
-                summary_data.append({
-                    'Initial_Date': interval.left.strftime('%d/%m/%Y'),
-                    'Ending_Date': (interval.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'),
-                    'Sales_Quantity': len(group),
-                    'Sales_Amount': group['Payment Amount (Numeric)'].sum(),
-                    'Days_in_Period': 7
-                })
+            week_num = 1  # To keep track of week numbers
+            
+            for start_date in bins[:-1]:  # Exclude the last bin edge
+                end_date = start_date + pd.Timedelta(days=6)  # End date is Sunday
+                mask = (summary_df.index >= start_date) & (summary_df.index <= end_date)
+                week_data = summary_df[mask]
+                
+                # Only include weeks that have data
+                if not week_data.empty or start_date <= last_date:
+                    summary_data.append({
+                        'Week': week_num,
+                        'Initial_Date': start_date.strftime('%d/%m/%Y'),
+                        'Ending_Date': end_date.strftime('%d/%m/%Y'),
+                        'Sales_Quantity': len(week_data),
+                        'Sales_Amount': week_data['Payment Amount (Numeric)'].sum(),
+                        'Days_in_Period': 7
+                    })
+                    week_num += 1
             
             summary = pd.DataFrame(summary_data)
             
@@ -482,18 +488,18 @@ if df is not None:
             
             # Format display columns
             summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
-            summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
+            summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:.2f}")
             summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
             
             # Select and order columns for display
             display_columns = [
-                'Initial_Date', 'Ending_Date', 'Sales_Quantity',
+                'Week', 'Initial_Date', 'Ending_Date', 'Sales_Quantity',
                 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
             ]
             
             display_summary = summary[display_columns].copy()
             display_summary.columns = [
-                'Initial Date', 'Ending Date', 'Sales Quantity',
+                'Week', 'Initial Date', 'Ending Date', 'Sales Quantity',
                 'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
             ]
             
