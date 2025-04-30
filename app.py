@@ -698,10 +698,10 @@ if df is not None:
             curr_inv_table = curr_inv_table.set_index(curr_inv_table.columns[0])
             curr_inv_table.index.name = None
             
-            # Style the table with the total row highlighted
+            # Style the table with bold total row
             def style_total_row(row):
                 if row.name == 'Total Flavour':
-                    return ['background-color: rgba(255, 255, 0, 0.2)'] * len(row)
+                    return ['font-weight: bold'] * len(row)
                 return [''] * len(row)
             
             styled_curr_inv = curr_inv_table.style.apply(style_total_row, axis=1)
@@ -740,15 +740,32 @@ if df is not None:
             plus_new_table = plus_new_table.set_index(plus_new_table.columns[0])
             plus_new_table.index.name = None
             
-            # Style the table with differences and total row highlighted
-            def style_diff_and_total(row):
-                if row.name == 'Total Flavour':
-                    return ['background-color: rgba(255, 255, 0, 0.2)'] * len(row)
-                return [''] * len(row)
+            # Define highlight_diff function
+            def highlight_diff(val, ref):
+                try:
+                    return 'background-color: yellow' if float(val) != float(ref) else ''
+                except:
+                    return ''
             
-            styled_plus_new = plus_new_table.style.apply(style_diff_and_total, axis=1).apply(
-                lambda x: [highlight_diff(x[c], curr_inv_table.loc[x.name, c]) if c in curr_inv_table.columns and x.name != 'Total Flavour' else '' for c in plus_new_table.columns], axis=1
-            )
+            # Style the table with differences and bold total row
+            def style_diff_and_total(df):
+                # Create an empty DataFrame of strings with the same shape as our data
+                styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
+                
+                # Add bold style to total row
+                styles.loc['Total Flavour'] = 'font-weight: bold'
+                
+                # Add yellow background to differences (except in total row)
+                for idx in df.index:
+                    if idx != 'Total Flavour':
+                        for col in df.columns:
+                            if col in curr_inv_table.columns:
+                                if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
+                                    styles.loc[idx, col] = 'background-color: yellow'
+                
+                return styles
+            
+            styled_plus_new = plus_new_table.style.apply(style_diff_and_total, axis=None)
             
             st.markdown('### Current + New Orders (differences highlighted)')
             st.dataframe(styled_plus_new, use_container_width=True)
