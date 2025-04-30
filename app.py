@@ -719,13 +719,13 @@ if df is not None:
                                 except:
                                     pass
                 
-                # Make Total Flavour row and Total Mg column bold with larger font
+                # Make Total Flavour row and Total Mg column bold with larger font and subtle background
                 for col in df.columns:
-                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 15px'
+                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)'
                     if col == 'Total Mg':
                         for idx in df.index:
                             current_style = styles.loc[idx, col]
-                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 15px' if current_style else 'font-weight: 900; font-size: 15px'
+                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)' if current_style else 'font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)'
                 
                 return styles
             
@@ -781,13 +781,13 @@ if df is not None:
                                 except:
                                     pass
                 
-                # Make Total Flavour row and Total Mg column bold with larger font
+                # Make Total Flavour row and Total Mg column bold with larger font and subtle background
                 for col in df.columns:
-                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 15px'
+                    styles.loc['Total Flavour', col] = 'font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)'
                     if col == 'Total Mg':
                         for idx in df.index:
                             current_style = styles.loc[idx, col]
-                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 15px' if current_style else 'font-weight: 900; font-size: 15px'
+                            styles.loc[idx, col] = current_style + '; font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)' if current_style else 'font-weight: 900; font-size: 16px; background-color: rgba(0, 0, 0, 0.1)'
                 
                 return styles
             
