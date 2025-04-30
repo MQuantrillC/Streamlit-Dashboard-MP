@@ -354,9 +354,9 @@ if df is not None:
         
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-       # --- Weekly Sales Summary Table ---
+    # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
         summary_view = st.radio(
