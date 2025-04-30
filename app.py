@@ -456,19 +456,22 @@ if df is not None:
             last_date = summary_df.index.max().normalize()
             # Create weekly bins from first Monday
             bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
-            summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg({
-                'Payment Amount (Numeric)': 'sum'
-            }).reset_index()
+            
+            # Group by week and calculate metrics
+            summary = pd.DataFrame()
+            weekly_groups = pd.cut(summary_df.index, bins, right=False)
+            summary['Payment Amount (Numeric)'] = summary_df.groupby(weekly_groups)['Payment Amount (Numeric)'].sum()
+            summary['Sales_Quantity'] = summary_df.groupby(weekly_groups).size()
+            summary = summary.reset_index()
             
             # Add date columns
             summary['Initial_Date'] = summary['Date'].apply(lambda x: x.left.strftime('%d/%m/%Y'))
             summary['Ending_Date'] = summary['Date'].apply(lambda x: (x.right - pd.Timedelta(days=1)).strftime('%d/%m/%Y'))
             summary['Days_in_Period'] = 7
-            summary['Sales_Quantity'] = summary.index + 1  # Week number
             
             # Calculate daily averages
-            summary['Sales_Quantity_per_Day'] = summary['Sales_Quantity'] / summary['Days_in_Period']
-            summary['Sales_Amount_per_Day'] = summary['Payment Amount (Numeric)'] / summary['Days_in_Period']
+            summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
+            summary['Sales_Amount_per_Day'] = (summary['Payment Amount (Numeric)'] / summary['Days_in_Period']).round(2)
             
             # Format display columns
             summary['Sales Amount'] = summary['Payment Amount (Numeric)'].apply(lambda x: f"S/.{x:,.0f}")
