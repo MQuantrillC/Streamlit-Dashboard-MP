@@ -357,109 +357,111 @@ if df is not None:
         st.markdown("<br>", unsafe_allow_html=True)
 
         # --- Weekly Sales Summary Table ---
-    if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
-        # Add view selection
-        summary_view = st.radio(
-            "Select Summary View",
-            ("Weekly", "Monthly"),
-            horizontal=True,
-            key="summary_view"
-        )
-
-        summary_df = df.copy()
-        summary_df = summary_df.set_index('Date').sort_index()
-
-        if summary_view == "Weekly":
-            # Weekly Summary Logic
-            first_date = summary_df.index.min().normalize()
-            first_monday = first_date - pd.Timedelta(days=first_date.weekday())
-            last_date = summary_df.index.max().normalize()
-            # Create weekly bins from first Monday
-            bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
-            summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg(
-                Initial_Date=('Amount', lambda x: x.index.min()),
-                Ending_Date=('Amount', lambda x: x.index.max()),
-                Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
-            ).reset_index(drop=True)
+        if 'Date' in df.columns and 'Amount' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+            # Add view selection
+            summary_view = st.radio(
+                "Select Summary View",
+                ("Weekly", "Monthly"),
+                horizontal=True,
+                key="summary_view"
+            )
     
-            # Fill missing dates for empty weeks
-            for i in range(len(summary)):
-                if pd.isna(summary.loc[i, 'Initial_Date']):
-                    summary.loc[i, 'Initial_Date'] = bins[i]
-                    summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
-                    summary.loc[i, 'Sales_Quantity'] = 0
-                    summary.loc[i, 'Sales_Amount_Numeric'] = 0
-            
-            summary['Days_in_Period'] = 7
-            
-        else:  # Monthly Summary Logic
-            # Group by month
-            summary_df = summary_df.reset_index()  # Reset index to get 'Date' as column
-            summary_df['Month'] = summary_df['Date'].dt.to_period('M')
-            summary = summary_df.groupby('Month').agg(
-                Initial_Date=('Date', lambda x: x.min()),
-                Ending_Date=('Date', lambda x: x.max()),
-                Sales_Quantity=('Amount', 'sum'),
-                Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
-            ).reset_index(drop=True)
-            
-        # Calculate days in each month for daily averages
-        summary['Days_in_Period'] = (pd.to_datetime(summary['Ending_Date']) - 
-                                    pd.to_datetime(summary['Initial_Date'])).dt.days + 1
-
-        # Format dates
-        summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
-        summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
+            summary_df = df.copy()
+            summary_df = summary_df.set_index('Date').sort_index()
+    
+            if summary_view == "Weekly":
+                # Weekly Summary Logic
+                first_date = summary_df.index.min().normalize()
+                first_monday = first_date - pd.Timedelta(days=first_date.weekday())
+                last_date = summary_df.index.max().normalize()
+                # Create weekly bins from first Monday
+                bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='7D')
+                summary = summary_df.groupby(pd.cut(summary_df.index, bins, right=False)).agg(
+                    Initial_Date=('Amount', lambda x: x.index.min()),
+                    Ending_Date=('Amount', lambda x: x.index.max()),
+                    Sales_Quantity=('Amount', 'sum'),
+                    Sales_Amount_Numeric=('Payment Amount (Numeric)', 'sum')
+                ).reset_index(drop=True)
         
-        # Calculate daily averages
-        summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
-        summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
-
-        # Format the display columns
-        summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
-        summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
-        summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
-        
-        # Select and rename columns for display
-        display_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
-                         'Sales Amount', 'Sales Amount per Day']
-        
-        display_summary = summary[display_columns].copy()
-        display_summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
-                                 'Sales Amount', 'Sales Amount per Day']
-        
-        st.markdown(f'**{summary_view} Sales Summary**')
-        
-        # Convert Sales Quant per Day to numeric for comparison
-        numeric_values = display_summary['Sales Quant per Day'].astype(str).str.replace(',', '').astype(float)
-        max_val = numeric_values.max()
-        min_val = numeric_values.min()
-        
-        # Custom styling function with darker green colors
-        def color_scale(val):
-            try:
-                val = float(str(val).replace(',', ''))
-                # Calculate the intensity (0 to 1)
-                intensity = (val - min_val) / (max_val - min_val) if max_val != min_val else 0
-                # Create a color scale from light to darker green
-                r = int(180 - (intensity * 100))   # from 180 to 80
-                g = int(200 - (intensity * 60))    # from 200 to 140
-                b = int(180 - (intensity * 100))   # from 180 to 80
-                return f'background-color: rgb({r},{g},{b})'
-            except:
-                return ''
-
-        # Apply the custom styling
-        styled_summary = display_summary.style.applymap(
-            color_scale,
-            subset=['Sales Quant per Day']
-        )
-        
-        st.dataframe(
-            styled_summary,
-            use_container_width=True
-        )
+                # Fill missing dates for empty weeks
+                for i in range(len(summary)):
+                    if pd.isna(summary.loc[i, 'Initial_Date']):
+                        summary.loc[i, 'Initial_Date'] = bins[i]
+                        summary.loc[i, 'Ending_Date'] = bins[i+1] - pd.Timedelta(days=1)
+                        summary.loc[i, 'Sales_Quantity'] = 0
+                        summary.loc[i, 'Sales_Amount_Numeric'] = 0
+                
+                summary['Days_in_Period'] = 7
+                
+            else:  # Monthly Summary Logic
+                # Reset index to get 'Date' as column
+                summary_df = summary_df.reset_index()
+                
+                # Function to get the first and last day of a month
+                def get_month_bounds(date):
+                    start = date.replace(day=1)
+                    end = (start + pd.offsets.MonthEnd(1))
+                    return start, end
+                
+                # Get unique months in the data
+                months = summary_df['Date'].dt.to_period('M').unique()
+                monthly_data = []
+                
+                for month in months:
+                    month_start, month_end = get_month_bounds(month.to_timestamp())
+                    
+                    # For custom range, only include months that fall completely within the range
+                    if time_frame == "Custom Range":
+                        if month_start < pd.Timestamp(start_date) or month_end > pd.Timestamp(end_date):
+                            continue
+                    
+                    # Get data for this month
+                    month_data = summary_df[
+                        (summary_df['Date'] >= month_start) & 
+                        (summary_df['Date'] <= month_end)
+                    ]
+                    
+                    if not month_data.empty:
+                        monthly_data.append({
+                            'Initial_Date': month_start,
+                            'Ending_Date': month_end,
+                            'Sales_Quantity': month_data['Amount'].sum(),
+                            'Sales_Amount_Numeric': month_data['Payment Amount (Numeric)'].sum(),
+                            'Days_in_Period': (month_end - month_start).days + 1
+                        })
+                
+                if monthly_data:
+                    summary = pd.DataFrame(monthly_data)
+                    
+                    # Format dates
+                    summary['Initial Date'] = pd.to_datetime(summary['Initial_Date']).dt.strftime('%d/%m/%Y')
+                    summary['Ending Date'] = pd.to_datetime(summary['Ending_Date']).dt.strftime('%d/%m/%Y')
+                    
+                    # Calculate daily averages
+                    summary['Sales_Quantity_per_Day'] = round(summary['Sales_Quantity'] / summary['Days_in_Period'], 2)
+                    summary['Sales_Amount_per_Day'] = round(summary['Sales_Amount_Numeric'] / summary['Days_in_Period'], 2)
+    
+                    # Format the display columns
+                    summary['Sales Amount'] = summary['Sales_Amount_Numeric'].apply(lambda x: f"S/.{x:,.0f}")
+                    summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
+                    summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
+                    
+                    # Select and rename columns for display
+                    display_columns = ['Initial Date', 'Ending Date', 'Sales_Quantity', 'Sales Quant per Day',
+                                    'Sales Amount', 'Sales Amount per Day']
+                    
+                    display_summary = summary[display_columns].copy()
+                    display_summary.columns = ['Initial Date', 'Ending Date', 'Sales Quantity', 'Sales Quant per Day',
+                                            'Sales Amount', 'Sales Amount per Day']
+                    
+                    # Apply styling
+                    styled_summary = display_summary.style.background_gradient(subset=['Sales Quant per Day'], cmap='Greens')
+                    
+                    # Display the table
+                    st.markdown(f'**{summary_view} Sales Summary**')
+                    st.dataframe(styled_summary, use_container_width=True)
+                else:
+                    st.warning("No complete months found in the selected date range.")
 
     # --- Inventory Analytics ---
     try:
