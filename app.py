@@ -447,14 +447,14 @@ if df is not None:
         )
 
         summary_df = df.copy()
-        summary_df = summary_df.set_index('Date').sort_index()
+        summary_df['Date'] = pd.to_datetime(summary_df['Date'])  # Ensure dates are datetime
 
         if summary_view == "Weekly":
             # Weekly Summary Logic
-            first_date = summary_df.index.min().normalize()
+            first_date = summary_df['Date'].min().normalize()
             # Ensure we start from Monday
             first_monday = first_date - pd.Timedelta(days=first_date.weekday())
-            last_date = summary_df.index.max().normalize()
+            last_date = summary_df['Date'].max().normalize()
             
             # Create weekly bins from first Monday to last date
             bins = pd.date_range(start=first_monday, end=last_date + pd.Timedelta(days=6), freq='W-MON')
@@ -465,10 +465,12 @@ if df is not None:
             
             for start_date in bins[:-1]:  # Exclude the last bin edge
                 end_date = start_date + pd.Timedelta(days=6)  # End date is Sunday
-                mask = (summary_df.index >= start_date) & (summary_df.index <= end_date)
+                
+                # Use inclusive range (>= start_date AND <= end_date) to match Excel's SUMIFS
+                mask = (summary_df['Date'].dt.normalize() >= start_date) & (summary_df['Date'].dt.normalize() <= end_date)
                 week_data = summary_df[mask]
                 
-                # Only include weeks that have data
+                # Only include weeks that have data or are within our date range
                 if not week_data.empty or start_date <= last_date:
                     summary_data.append({
                         'Week': week_num,
@@ -482,79 +484,25 @@ if df is not None:
             
             summary = pd.DataFrame(summary_data)
             
-            # Calculate daily averages
-            summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
-            summary['Sales_Amount_per_Day'] = (summary['Sales_Amount'] / summary['Days_in_Period']).round(2)
-            
-            # Format display columns
-            summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
-            summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:.2f}")
-            summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
-            
-            # Select and order columns for display
-            display_columns = [
-                'Week', 'Initial_Date', 'Ending_Date', 'Sales_Quantity',
-                'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
-            ]
-            
-            display_summary = summary[display_columns].copy()
-            display_summary.columns = [
-                'Week', 'Initial Date', 'Ending Date', 'Sales Quantity',
-                'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
-            ]
-            
-            # Display the table
-            st.markdown(f'**{summary_view} Sales Summary**')
-            st.dataframe(display_summary, use_container_width=True)
-            
-        else:  # Monthly Summary Logic
-            # Reset index to get 'Date' as column
-            summary_df = summary_df.reset_index()
-            
-            # Get unique months in the data
-            monthly_data = []
-            
-            # Group by month
-            monthly_groups = summary_df.groupby(summary_df['Date'].dt.to_period('M'))
-            
-            for month, month_data in monthly_groups:
-                month_start = month_data['Date'].min().replace(day=1)
-                month_end = (month_start + pd.offsets.MonthEnd(1))
-                
-                # For custom range, only include months that fall completely within the range
-                if time_frame == "Custom Range":
-                    if month_start < pd.Timestamp(start_date) or month_end > pd.Timestamp(end_date):
-                        continue
-                
-                monthly_data.append({
-                    'Initial_Date': month_start.strftime('%d/%m/%Y'),
-                    'Ending_Date': month_end.strftime('%d/%m/%Y'),
-                    'Sales_Quantity': len(month_data),
-                    'Sales_Amount': month_data['Payment Amount (Numeric)'].sum(),
-                    'Days_in_Period': (month_end - month_start).days + 1
-                })
-            
-            if monthly_data:
-                summary = pd.DataFrame(monthly_data)
-                
+            if not summary.empty:
                 # Calculate daily averages
                 summary['Sales_Quantity_per_Day'] = (summary['Sales_Quantity'] / summary['Days_in_Period']).round(2)
                 summary['Sales_Amount_per_Day'] = (summary['Sales_Amount'] / summary['Days_in_Period']).round(2)
                 
-                # Format the display columns
+                # Format display columns
                 summary['Sales Amount'] = summary['Sales_Amount'].apply(lambda x: f"S/.{x:,.0f}")
-                summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:,.2f}")
+                summary['Sales Amount per Day'] = summary['Sales_Amount_per_Day'].apply(lambda x: f"S/.{x:.2f}")
                 summary['Sales Quant per Day'] = summary['Sales_Quantity_per_Day'].apply(lambda x: f"{x:.2f}")
                 
                 # Select and order columns for display
                 display_columns = [
-                    'Initial_Date', 'Ending_Date', 'Sales_Quantity', 
+                    'Week', 'Initial_Date', 'Ending_Date', 'Sales_Quantity',
                     'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
                 ]
                 
                 display_summary = summary[display_columns].copy()
                 display_summary.columns = [
-                    'Initial Date', 'Ending Date', 'Sales Quantity',
+                    'Week', 'Initial Date', 'Ending Date', 'Sales Quantity',
                     'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
                 ]
                 
@@ -562,7 +510,7 @@ if df is not None:
                 st.markdown(f'**{summary_view} Sales Summary**')
                 st.dataframe(display_summary, use_container_width=True)
             else:
-                st.warning("No complete months found in the selected date range.")
+                st.warning("No data available for the selected time period.")
 
     # --- Inventory Analytics ---
     try:
