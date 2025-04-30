@@ -17,6 +17,22 @@ st.set_page_config(
 # Title
 st.title("Machu Pouches Dashboard")
 
+# Add this function near the top of the file, after the imports
+def get_green_gradient(value, min_val, max_val):
+    """Create a green gradient color based on value, min, and max."""
+    # Normalize the value between 0 and 1
+    normalized = (value - min_val) / (max_val - min_val) if max_val > min_val else 0.5
+    
+    # Create a gradient from light green (#e6ffe6) to dark green (#006400)
+    r = int(230 - normalized * 230)  # Start at 230, decrease to 0
+    g = int(255 - normalized * 191)  # Start at 255, decrease to 64
+    b = int(230 - normalized * 230)  # Start at 230, decrease to 0
+    
+    # Ensure text is visible (use white text for darker backgrounds)
+    text_color = 'white' if normalized > 0.7 else 'black'
+    
+    return f'background-color: rgb({r},{g},{b}); color: {text_color}'
+
 # Google Sheets setup
 def connect_to_sheets():
     scope = ['https://spreadsheets.google.com/feeds',
@@ -513,9 +529,25 @@ if df is not None:
                     'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
                 ]
                 
+                # Apply green gradient to Sales Quant per Day
+                min_quant = summary['Sales_Quantity_per_Day'].min()
+                max_quant = summary['Sales_Quantity_per_Day'].max()
+                
+                def style_weekly_quant(val):
+                    try:
+                        num_val = float(val)
+                        return get_green_gradient(num_val, min_quant, max_quant)
+                    except:
+                        return ''
+                
+                styled_weekly = display_summary.style.applymap(
+                    style_weekly_quant,
+                    subset=['Sales Quant per Day']
+                )
+                
                 # Display the table
                 st.markdown(f'**{summary_view} Sales Summary**')
-                st.dataframe(display_summary, use_container_width=True)
+                st.dataframe(styled_weekly, use_container_width=True)
             else:
                 st.warning("No data available for the selected time period.")
         elif summary_view == "Monthly":
@@ -567,9 +599,25 @@ if df is not None:
                     'Sales Quant per Day', 'Sales Amount', 'Sales Amount per Day'
                 ]
                 
+                # Apply green gradient to Sales Quant per Day
+                min_quant = monthly_summary['Sales_Quantity_per_Day'].min()
+                max_quant = monthly_summary['Sales_Quantity_per_Day'].max()
+                
+                def style_monthly_quant(val):
+                    try:
+                        num_val = float(val)
+                        return get_green_gradient(num_val, min_quant, max_quant)
+                    except:
+                        return ''
+                
+                styled_monthly = display_monthly.style.applymap(
+                    style_monthly_quant,
+                    subset=['Sales Quant per Day']
+                )
+                
                 # Display the table
                 st.markdown(f'**{summary_view} Sales Summary**')
-                st.dataframe(display_monthly, use_container_width=True)
+                st.dataframe(styled_monthly, use_container_width=True)
             else:
                 st.warning("No data available for the selected time period.")
 
