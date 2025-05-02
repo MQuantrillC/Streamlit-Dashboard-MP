@@ -64,6 +64,8 @@ def load_sheet(sheet_name):
         spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
         worksheet = spreadsheet.worksheet(sheet_name)
         data = worksheet.get_all_values()
+        if sheet_name == 'Finances':
+            data = data[:50]  # Only load first 50 rows for Finances
         return pd.DataFrame(data)
     return pd.DataFrame()
 
@@ -625,6 +627,7 @@ if df is not None:
         if client:
             inventory_df = load_sheet('Inventory')
             st.write("Loaded inventory data")
+            st.write("Loading finances sheet...")
             finances_df = load_sheet('Finances')
             st.write("Loaded finances data")
 
