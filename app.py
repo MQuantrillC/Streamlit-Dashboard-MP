@@ -56,23 +56,23 @@ def connect_to_sheets():
         st.error("Please check your Streamlit secrets configuration.")
         return None
 
-# --- CACHED DATA LOADERS ---
-@st.cache_data(ttl=600)
-def load_sheet(sheet_name):
-    client = connect_to_sheets()
-    if client:
-        spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
-        worksheet = spreadsheet.worksheet(sheet_name)
-        data = worksheet.get_all_values()
-        if sheet_name == 'Finances':
-            data = data[:50]  # Only load first 50 rows for Finances
-        return pd.DataFrame(data)
-    return pd.DataFrame()
+# Function to load data
+def load_data():
+    try:
+        client = connect_to_sheets()
+        if client:
+            # Replace with your actual spreadsheet key
+            spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+            worksheet = spreadsheet.get_worksheet(0)  # Get the first worksheet
+            data = worksheet.get_all_records()
+            return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return None
 
 # Main content
 st.write("Loading data...")
-df = load_sheet('Sales')
-st.write("Loaded sales data")
+df = load_data()
 
 # Create a new column 'Payment Amount (Numeric)' for analytics
 if df is not None and 'Payment Amount' in df.columns:
@@ -625,11 +625,9 @@ if df is not None:
     try:
         client = connect_to_sheets()
         if client:
-            inventory_df = load_sheet('Inventory')
-            st.write("Loaded inventory data")
-            st.write("Loading finances sheet...")
-            finances_df = load_sheet('Finances')
-            st.write("Loaded finances data")
+            inventory_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Inventory')
+            inventory_data = inventory_sheet.get_all_values()
+            inventory_df = pd.DataFrame(inventory_data)
 
             st.markdown('## 📦 Inventory Analytics')
 
@@ -800,7 +798,7 @@ if df is not None:
                                 try:
                                     if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
                                         styles.loc[idx, col] = 'background-color: yellow'
-                                except:
+                except:
                                     pass
                 
                 # Make Total Flavour row and Total Mg column bold with larger font and distinct styling
@@ -818,47 +816,8 @@ if df is not None:
             st.markdown('### Current + New Orders (differences highlighted)')
             st.dataframe(styled_plus_new, use_container_width=True)
 
-            # --- Financial Analytics ---
-            st.markdown('## 💰 Financial Analytics')
-            
-            # Display the finances table with styling
-            if not finances_df.empty:
-                # Convert numeric columns to float
-                numeric_cols = finances_df.select_dtypes(include=['object']).columns
-                for col in numeric_cols:
-                    finances_df[col] = pd.to_numeric(finances_df[col], errors='coerce').fillna(0)
-
-                # Style the table
-                def style_finances(df):
-                    styles = pd.DataFrame(index=df.index, columns=df.columns, data='')
-                    
-                    # Style totals row
-                    total_style = 'font-weight: 900; font-size: 20px; background-color: #2C3E50; color: white; border: 2px solid #ECF0F1;'
-                    
-                    # Apply styling to each cell
-                    for idx in df.index:
-                        for col in df.columns:
-                            try:
-                                val = float(df.loc[idx, col])
-                                if 'Total' in str(idx) or 'Total' in str(col):
-                                    styles.loc[idx, col] = total_style
-                                elif val < 0:
-                                    styles.loc[idx, col] = 'color: red'
-                                elif val > 0:
-                                    styles.loc[idx, col] = 'color: green'
-                            except:
-                                if 'Total' in str(idx) or 'Total' in str(col):
-                                    styles.loc[idx, col] = total_style
-                    
-                    return styles
-
-                styled_finances = finances_df.style.apply(style_finances, axis=None)
-                st.dataframe(styled_finances, use_container_width=True)
-            else:
-                st.warning("No financial data available.")
-
     except Exception as e:
-        st.warning(f"Could not load analytics: {e}")
+        st.warning(f"Could not load inventory analytics: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
