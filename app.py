@@ -821,6 +821,59 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- Financial Results Statement from "Finances" Sheet ---
+    try:
+        client = connect_to_sheets()
+        if client:
+            spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+            finances_ws = spreadsheet.worksheet('Finances')
+            finances_data = finances_ws.get_all_records()
+            finances_df = pd.DataFrame(finances_data)
+
+            # Clean and prepare data
+            finances_df = finances_df.rename(columns=lambda x: x.strip())
+            finances_df = finances_df[finances_df['Amount (Local Currency)'].astype(str).str.strip() != '']
+            finances_df['Amount (Local Currency)'] = (
+                finances_df['Amount (Local Currency)']
+                .astype(str)
+                .str.replace('S/.', '', regex=False)
+                .str.replace(',', '', regex=False)
+                .str.extract(r'([\d\.]+)')[0]
+                .astype(float)
+            )
+
+            # Separate income and expenses
+            income_df = finances_df[finances_df['+/-'] == 'Income']
+            expense_df = finances_df[finances_df['+/-'] == 'Expense']
+
+            # Revenue by product/concept
+            revenue_by_product = (
+                income_df.groupby('Concept')['Amount (Local Currency)']
+                .sum()
+                .sort_values(ascending=False)
+            )
+
+            # Total income and expenses
+            total_income = income_df['Amount (Local Currency)'].sum()
+            total_expenses = expense_df['Amount (Local Currency)'].sum()
+            net_result = total_income - total_expenses
+
+            # Display in Streamlit
+            st.markdown("## 💰 Financial Results Statement")
+            st.markdown("### Revenue by Product")
+            st.table(pd.DataFrame({
+                'Revenue (S/.)': revenue_by_product.map(lambda x: f'S/. {x:,.2f}')
+            }))
+
+            st.markdown("### Expenses")
+            st.metric("Total Expenses", f"S/. {total_expenses:,.2f}")
+
+            st.markdown("### Net Result")
+            st.metric("Net Profit / Loss", f"S/. {net_result:,.2f}")
+
+    except Exception as e:
+        st.warning(f'Could not load financial analytics: {e}')
+
     # Raw data
     st.markdown("**Raw Data**")
     st.dataframe(df)
