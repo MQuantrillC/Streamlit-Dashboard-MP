@@ -878,71 +878,46 @@ if df is not None:
             with col3:
                 st.metric("Net Profit Margin", f"{net_margin_pct:.2f}%")
 
-            # Build enhanced DataFrame for display
-            rows = []
-            # Revenue section header
-            rows.append(["REVENUE", "", "", "section_header"])
+            # Build enhanced HTML table for display
+            html = """
+            <style>
+            .fin-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+            .fin-table th, .fin-table td { padding: 8px 12px; text-align: left; }
+            .fin-header { font-size: 1.3em; font-weight: bold; background: #222; color: #fff; }
+            .fin-revenue-header { background: #007f3f; color: #fff; font-weight: bold; font-size: 1.1em; }
+            .fin-revenue { background: #e6ffe6; color: #222; }
+            .fin-revenue-total { background: #39d353; color: #fff; font-weight: bold; }
+            .fin-expenses-header { background: #b30000; color: #fff; font-weight: bold; font-size: 1.1em; }
+            .fin-expense { background: #ffe6e6; color: #222; }
+            .fin-expense-total { background: #ff6666; color: #fff; font-weight: bold; }
+            .fin-net-profit { background: #b3d1ff; color: #222; font-weight: bold; }
+            .fin-spacer { background: #222; color: #222; height: 8px; }
+            </style>
+            <table class="fin-table">
+                <tr class="fin-header">
+                    <th>Item</th>
+                    <th>Amount</th>
+                    <th>% of Total</th>
+                </tr>
+            """
+            # Revenue section
+            html += '<tr class="fin-revenue-header"><td colspan="3">REVENUE</td></tr>'
             for product, value in revenue_by_product.items():
-                rows.append([
-                    product,
-                    f'S/. {value:,.2f}',
-                    f'{revenue_percent[product]:.2f}%',
-                    "revenue"
-                ])
-            rows.append(["Total Revenue", f'S/. {revenue_total:,.2f}', "100.00%", "revenue_total"])
-            # Spacer row
-            rows.append(["", "", "", "spacer"])
-            # Expenses section header
-            rows.append(["EXPENSES", "", "", "section_header"])
+                html += f'<tr class="fin-revenue"><td>{product}</td><td>S/. {value:,.2f}</td><td>{revenue_percent[product]:.2f}%</td></tr>'
+            html += f'<tr class="fin-revenue-total"><td>Total Revenue</td><td>S/. {revenue_total:,.2f}</td><td>100.00%</td></tr>'
+            html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
+            # Expenses section
+            html += '<tr class="fin-expenses-header"><td colspan="3">EXPENSES</td></tr>'
             for concept, value in expenses_by_concept.items():
-                rows.append([
-                    concept,
-                    f'S/. {value:,.2f}',
-                    f'{expenses_percent[concept]:.2f}%',
-                    "expense"
-                ])
-            rows.append(["Total Expenses", f'S/. {expenses_total:,.2f}', "100.00%", "expense_total"])
-            # Spacer row
-            rows.append(["", "", "", "spacer"])
+                html += f'<tr class="fin-expense"><td>{concept}</td><td>S/. {value:,.2f}</td><td>{expenses_percent[concept]:.2f}%</td></tr>'
+            html += f'<tr class="fin-expense-total"><td>Total Expenses</td><td>S/. {expenses_total:,.2f}</td><td>100.00%</td></tr>'
+            html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
             # Net profit row
-            rows.append(["Net Profit (Margin)", f'S/. {net_result:,.2f}', f'{net_margin_pct:.2f}%', "net_profit"])
+            html += f'<tr class="fin-net-profit"><td>Net Profit (Margin)</td><td>S/. {net_result:,.2f}</td><td>{net_margin_pct:.2f}%</td></tr>'
+            html += '</table>'
 
-            fin_df = pd.DataFrame(rows, columns=["Item", "Amount", "% of Total", "Type"])
-
-            # Only apply styling if 'Type' column exists
-            if "Type" in fin_df.columns:
-                def highlight_financials(row):
-                    n_cols = len(fin_df.columns) - 1  # Exclude 'Type'
-                    style = [''] * n_cols
-                    row_type = row['Type'] if 'Type' in row else ''
-                    if row_type == 'section_header':
-                        if row['Item'] == 'REVENUE':
-                            style = ['font-weight: bold; background-color: #007f3f; color: #fff; font-size: 18px;'] * n_cols  # strong green
-                        elif row['Item'] == 'EXPENSES':
-                            style = ['font-weight: bold; background-color: #b30000; color: #fff; font-size: 18px;'] * n_cols  # strong red
-                        else:
-                            style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * n_cols
-                    elif row_type == 'revenue':
-                        style = ['background-color: #e6ffe6; color: #222;'] * n_cols  # light green
-                    elif row_type == 'revenue_total':
-                        style = ['background-color: #39d353; color: #fff; font-weight: bold;'] * n_cols  # medium green
-                    elif row_type == 'expense':
-                        style = ['background-color: #ffe6e6; color: #222;'] * n_cols  # light red
-                    elif row_type == 'expense_total':
-                        style = ['background-color: #ff6666; color: #fff; font-weight: bold;'] * n_cols  # medium red
-                    elif row_type == 'net_profit':
-                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * n_cols  # blue
-                    elif row_type == 'spacer':
-                        style = ['background-color: #222; color: #222;'] * n_cols
-                    return style
-
-                st.markdown("## 💰 Financial Results Statement")
-                st.table(
-                    fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1)
-                )
-            else:
-                st.markdown("## 💰 Financial Results Statement")
-                st.dataframe(fin_df, use_container_width=True)
+            st.markdown("## 💰 Financial Results Statement")
+            st.markdown(html, unsafe_allow_html=True)
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
