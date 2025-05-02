@@ -1000,13 +1000,20 @@ if df is not None:
 
             # Show breakdown for selected month
             selected = grid_response['selected_rows']
-            if selected and isinstance(selected, list) and len(selected) > 0 and 'Month' in selected[0]:
+            if (
+                selected
+                and isinstance(selected, list)
+                and len(selected) > 0
+                and 'Month' in selected[0]
+                and selected[0]['Month'] in breakdown_dict
+            ):
                 month_str = selected[0]['Month']
                 st.markdown(f"### Breakdown for {month_str}")
+
                 # Revenue breakdown
                 st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                 rev = breakdown_dict[month_str]['revenue']
-                if isinstance(rev, pd.DataFrame) and not rev.empty:
+                if isinstance(rev, pd.DataFrame) and not rev.empty and len(rev) > 0:
                     html = """
                     <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
                     <table style='width:100%;'>
@@ -1018,10 +1025,11 @@ if df is not None:
                     st.markdown(html, unsafe_allow_html=True)
                 else:
                     st.write("No revenue for this month.")
+
                 # Expenses breakdown
                 st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                 exp = breakdown_dict[month_str]['expense']
-                if isinstance(exp, pd.DataFrame) and not exp.empty:
+                if isinstance(exp, pd.DataFrame) and not exp.empty and len(exp) > 0:
                     html = """
                     <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
                     <table style='width:100%;'>
