@@ -853,6 +853,8 @@ if df is not None:
                 .sum()
                 .sort_values(ascending=False)
             )
+            revenue_total = revenue_by_product.sum()
+            revenue_percent = (revenue_by_product / revenue_total * 100).round(2)
 
             # Expenses by concept
             expenses_by_concept = (
@@ -860,47 +862,63 @@ if df is not None:
                 .sum()
                 .sort_values(ascending=False)
             )
+            expenses_total = expenses_by_concept.sum()
 
             # Totals and metrics
-            total_income = income_df['Amount (Local Currency)'].sum()
-            total_expenses = expense_df['Amount (Local Currency)'].sum()
-            net_result = total_income - total_expenses
-            gross_margin_pct = (net_result / total_income * 100) if total_income else np.nan
-            avg_sale_price = income_df['Amount (Local Currency)'].mean()
+            net_result = revenue_total - expenses_total
+            net_margin_pct = (net_result / revenue_total * 100) if revenue_total else np.nan
+
+            # Header metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Revenue", f"S/. {revenue_total:,.2f}")
+            with col2:
+                st.metric("Total Expenses", f"S/. {expenses_total:,.2f}")
+            with col3:
+                st.metric("Net Profit Margin", f"{net_margin_pct:.2f}%")
 
             # Build styled DataFrame for display
             rows = []
-            rows.append(['Revenue', '', ''])
+            rows.append(["Revenue", "", "", ""])
             for product, value in revenue_by_product.items():
-                rows.append([f'  {product}', f'S/. {value:,.2f}', ''])
-            rows.append(['Total Revenue', f'S/. {total_income:,.2f}', ''])
+                rows.append([
+                    f"  {product}",
+                    f'S/. {value:,.2f}',
+                    f'{revenue_percent[product]:.2f}%',
+                    ""
+                ])
+            rows.append(["Total Revenue", f'S/. {revenue_total:,.2f}', "100.00%", ""])
 
-            rows.append(['Expenses', '', ''])
+            rows.append(["Expenses", "", "", ""])
             for concept, value in expenses_by_concept.items():
-                rows.append([f'  {concept}', f'S/. {value:,.2f}', ''])
-            rows.append(['Total Expenses', f'S/. {total_expenses:,.2f}', ''])
+                rows.append([
+                    f"  {concept}",
+                    f'S/. {value:,.2f}',
+                    "",
+                    ""
+                ])
+            rows.append(["Total Expenses", f'S/. {expenses_total:,.2f}', "", ""])
 
-            rows.append(['Net Profit (Margin)', f'S/. {net_result:,.2f}', f'{gross_margin_pct:.2f}%' if not np.isnan(gross_margin_pct) else 'N/A'])
-            rows.append(['Average Sale Price', f'S/. {avg_sale_price:,.2f}', ''])
+            rows.append(["Net Profit (Margin)", f'S/. {net_result:,.2f}', "", f'{net_margin_pct:.2f}%'])
 
-            fin_df = pd.DataFrame(rows, columns=['', 'Amount', 'Metric'])
+            fin_df = pd.DataFrame(rows, columns=["Item", "Amount", "% of Total", "Net Margin %"])
 
             # Styling function
             def highlight_financials(row):
                 style = [''] * len(row)
                 if row[0] == 'Revenue' or (isinstance(row[0], str) and row[0].startswith('  ') and row.name > 0 and fin_df.iloc[row.name-1,0] == 'Revenue'):
-                    style[1] = 'background-color: #90ee90; color: black; font-weight: bold;'  # light green
+                    style[1] = 'background-color: #d9f9d9; color: black; font-weight: bold;'  # light green
+                    style[2] = 'background-color: #d9f9d9; color: black;'
                 if row[0] == 'Total Revenue':
                     style[1] = 'background-color: #00cc00; color: white; font-weight: bold;'  # strong green
+                    style[2] = 'background-color: #00cc00; color: white; font-weight: bold;'
                 if row[0] == 'Expenses' or (isinstance(row[0], str) and row[0].startswith('  ') and row.name > 0 and fin_df.iloc[row.name-1,0] == 'Expenses'):
-                    style[1] = 'background-color: #ffb3b3; color: black; font-weight: bold;'  # light red
+                    style[1] = 'background-color: #ffd6d6; color: black; font-weight: bold;'  # light red
                 if row[0] == 'Total Expenses':
                     style[1] = 'background-color: #ff3333; color: white; font-weight: bold;'  # strong red
                 if row[0] == 'Net Profit (Margin)':
                     style[1] = 'background-color: #b3d1ff; color: black; font-weight: bold;'  # light blue
-                    style[2] = 'background-color: #b3d1ff; color: black; font-weight: bold;'
-                if row[0] == 'Average Sale Price':
-                    style[1] = 'background-color: #f7e967; color: black; font-weight: bold;'  # yellow
+                    style[3] = 'background-color: #b3d1ff; color: black; font-weight: bold;'
                 return style
 
             st.markdown("## 💰 Financial Results Statement")
