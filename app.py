@@ -919,6 +919,34 @@ if df is not None:
             st.markdown("## 💰 Financial Results Statement")
             st.markdown(html, unsafe_allow_html=True)
 
+            # --- Monthly Revenue and Expenses Trend Chart ---
+            finances_df['Date'] = pd.to_datetime(finances_df['Date'], errors='coerce')
+            finances_df = finances_df.dropna(subset=['Date'])
+            finances_df['Month'] = finances_df['Date'].dt.to_period('M').dt.to_timestamp()
+
+            monthly_income = finances_df[finances_df['+/-'] == 'Income'].groupby('Month')['Amount (Local Currency)'].sum()
+            monthly_expense = finances_df[finances_df['+/-'] == 'Expense'].groupby('Month')['Amount (Local Currency)'].sum()
+
+            # Align both series to the same index (all months present)
+            all_months = pd.date_range(start=finances_df['Month'].min(), end=finances_df['Month'].max(), freq='MS')
+            monthly_income = monthly_income.reindex(all_months, fill_value=0)
+            monthly_expense = monthly_expense.reindex(all_months, fill_value=0)
+
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=monthly_income.index, y=monthly_income.values, mode='lines+markers', name='Revenue', line=dict(color='green', width=3)))
+            fig.add_trace(go.Scatter(x=monthly_expense.index, y=monthly_expense.values, mode='lines+markers', name='Expenses', line=dict(color='red', width=3)))
+            fig.update_layout(
+                title='Monthly Revenue and Expenses',
+                xaxis_title='Month',
+                yaxis_title='Amount (S/.)',
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=16)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
 
