@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import json
 import numpy as np  # Add this at the top if not already imported
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 # Page config
 st.set_page_config(
@@ -947,55 +948,91 @@ if df is not None:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- Monthly Revenue and Expense Table with Expandable Breakdown ---
+            # --- Monthly Revenue and Expense Table with Expandable Breakdown using AgGrid ---
             st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
+            # Prepare summary data
             monthly_summary = pd.DataFrame({
-                'Revenue': monthly_income,
-                'Expenses': monthly_expense
+                'Month': monthly_income.index.strftime('%B %Y'),
+                'Revenue': monthly_income.values,
+                'Expenses': monthly_expense.values
             })
-            monthly_summary.index = monthly_summary.index.strftime('%B %Y')
-            monthly_summary = monthly_summary.reset_index().rename(columns={'index': 'Month'})
 
-            # Show summary table
-            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
+            # Prepare breakdown data for each month
+            breakdown_dict = {}
+            for month in monthly_income.index:
+                month_str = month.strftime('%B %Y')
+                month_mask = (finances_df['Month'] == month)
+                month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+                rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                breakdown_dict[month_str] = {
+                    'revenue': rev,
+                    'expense': exp
+                }
 
-            # Expanders for breakdown
-            for i, row in monthly_summary.iterrows():
-                month_str = row['Month']
-                with st.expander(f"Breakdown for {month_str}"):
-                    # Revenue breakdown
-                    month_dt = pd.to_datetime(month_str)
-                    month_mask = (finances_df['Month'] == month_dt)
-                    month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
-                    month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+            # Add a details column for AgGrid
+            monthly_summary['Details'] = ''
 
-                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                    if not month_income.empty:
-                        html = """
-                        <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                        <table style='width:100%;'>
-                        <tr><th>Concept</th><th>Amount</th></tr>
-                        """
-                        for _, r in month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index().iterrows():
-                            html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                        html += "</table>"
-                        st.markdown(html, unsafe_allow_html=True)
-                    else:
-                        st.write("No revenue for this month.")
+            # Build AgGrid options
+            gb = GridOptionsBuilder.from_dataframe(monthly_summary)
+            gb.configure_default_column(editable=False, groupable=False)
+            gb.configure_column('Revenue', type=['numericColumn'], valueFormatter="x.toLocaleString('en-US', {style: 'currency', currency: 'PEN'})")
+            gb.configure_column('Expenses', type=['numericColumn'], valueFormatter="x.toLocaleString('en-US', {style: 'currency', currency: 'PEN'})")
+            gb.configure_grid_options(domLayout='normal')
+            gb.configure_selection(selection_mode='single', use_checkbox=False)
+            gb.configure_side_bar()
+            gb.configure_pagination(paginationAutoPageSize=True)
+            gb.configure_column('Details', hide=True)
+            gridOptions = gb.build()
 
-                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                    if not month_expense.empty:
-                        html = """
-                        <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                        <table style='width:100%;'>
-                        <tr><th>Concept</th><th>Amount</th></tr>
-                        """
-                        for _, r in month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index().iterrows():
-                            html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                        html += "</table>"
-                        st.markdown(html, unsafe_allow_html=True)
-                    else:
-                        st.write("No expenses for this month.")
+            # Show AgGrid
+            grid_response = AgGrid(
+                monthly_summary,
+                gridOptions=gridOptions,
+                enable_enterprise_modules=False,
+                allow_unsafe_jscode=True,
+                theme='streamlit',
+                update_mode='SELECTION_CHANGED',
+                fit_columns_on_grid_load=True,
+                height=400
+            )
+
+            # Show breakdown for selected month
+            selected = grid_response['selected_rows']
+            if selected:
+                month_str = selected[0]['Month']
+                st.markdown(f"### Breakdown for {month_str}")
+                # Revenue breakdown
+                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                rev = breakdown_dict[month_str]['revenue']
+                if not rev.empty:
+                    html = """
+                    <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                    <table style='width:100%;'>
+                    <tr><th>Concept</th><th>Amount</th></tr>
+                    """
+                    for _, r in rev.iterrows():
+                        html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                    html += "</table>"
+                    st.markdown(html, unsafe_allow_html=True)
+                else:
+                    st.write("No revenue for this month.")
+                # Expenses breakdown
+                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                exp = breakdown_dict[month_str]['expense']
+                if not exp.empty:
+                    html = """
+                    <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                    <table style='width:100%;'>
+                    <tr><th>Concept</th><th>Amount</th></tr>
+                    """
+                    for _, r in exp.iterrows():
+                        html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                    html += "</table>"
+                    st.markdown(html, unsafe_allow_html=True)
+                else:
+                    st.write("No expenses for this month.")
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
