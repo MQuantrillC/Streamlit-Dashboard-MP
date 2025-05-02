@@ -916,17 +916,22 @@ if df is not None:
                     style = [''] * n_cols
                     row_type = row['Type'] if 'Type' in row else ''
                     if row_type == 'section_header':
-                        style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * n_cols
+                        if row['Item'] == 'REVENUE':
+                            style = ['font-weight: bold; background-color: #007f3f; color: #fff; font-size: 18px;'] * n_cols  # strong green
+                        elif row['Item'] == 'EXPENSES':
+                            style = ['font-weight: bold; background-color: #b30000; color: #fff; font-size: 18px;'] * n_cols  # strong red
+                        else:
+                            style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * n_cols
                     elif row_type == 'revenue':
-                        style = ['background-color: #e6ffe6; color: #222;'] * n_cols
+                        style = ['background-color: #e6ffe6; color: #222;'] * n_cols  # light green
                     elif row_type == 'revenue_total':
-                        style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * n_cols
+                        style = ['background-color: #39d353; color: #fff; font-weight: bold;'] * n_cols  # medium green
                     elif row_type == 'expense':
-                        style = ['background-color: #ffe6e6; color: #222;'] * n_cols
+                        style = ['background-color: #ffe6e6; color: #222;'] * n_cols  # light red
                     elif row_type == 'expense_total':
-                        style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * n_cols
+                        style = ['background-color: #ff6666; color: #fff; font-weight: bold;'] * n_cols  # medium red
                     elif row_type == 'net_profit':
-                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * n_cols
+                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * n_cols  # blue
                     elif row_type == 'spacer':
                         style = ['background-color: #222; color: #222;'] * n_cols
                     return style
