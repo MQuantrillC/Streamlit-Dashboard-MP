@@ -912,22 +912,23 @@ if df is not None:
             # Only apply styling if 'Type' column exists
             if "Type" in fin_df.columns:
                 def highlight_financials(row):
-                    style = [''] * (len(row)-1)  # Exclude 'Type' column
+                    n_cols = len(fin_df.columns) - 1  # Exclude 'Type'
+                    style = [''] * n_cols
                     row_type = row['Type'] if 'Type' in row else ''
                     if row_type == 'section_header':
-                        style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * (len(row)-1)
+                        style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * n_cols
                     elif row_type == 'revenue':
-                        style = ['background-color: #e6ffe6; color: #222;'] * (len(row)-1)
+                        style = ['background-color: #e6ffe6; color: #222;'] * n_cols
                     elif row_type == 'revenue_total':
-                        style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * (len(row)-1)
+                        style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * n_cols
                     elif row_type == 'expense':
-                        style = ['background-color: #ffe6e6; color: #222;'] * (len(row)-1)
+                        style = ['background-color: #ffe6e6; color: #222;'] * n_cols
                     elif row_type == 'expense_total':
-                        style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * (len(row)-1)
+                        style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * n_cols
                     elif row_type == 'net_profit':
-                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * (len(row)-1)
+                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * n_cols
                     elif row_type == 'spacer':
-                        style = ['background-color: #222; color: #222;'] * (len(row)-1)
+                        style = ['background-color: #222; color: #222;'] * n_cols
                     return style
 
                 st.markdown("## 💰 Financial Results Statement")
