@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import numpy as np  # Add this at the top if not already imported
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+import traceback
 
 # Page config
 st.set_page_config(
@@ -1000,47 +1001,51 @@ if df is not None:
 
             # Show breakdown for selected month
             selected = grid_response['selected_rows']
-            if (
-                selected
-                and isinstance(selected, list)
-                and len(selected) > 0
-                and 'Month' in selected[0]
-                and selected[0]['Month'] in breakdown_dict
-            ):
-                month_str = selected[0]['Month']
-                st.markdown(f"### Breakdown for {month_str}")
+            try:
+                if (
+                    isinstance(selected, list)
+                    and len(selected) > 0
+                    and isinstance(selected[0], dict)
+                    and 'Month' in selected[0]
+                    and selected[0]['Month'] in breakdown_dict
+                ):
+                    month_str = selected[0]['Month']
+                    st.markdown(f"### Breakdown for {month_str}")
 
-                # Revenue breakdown
-                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                rev = breakdown_dict[month_str]['revenue']
-                if isinstance(rev, pd.DataFrame) and not rev.empty and len(rev) > 0:
-                    html = """
-                    <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                    <table style='width:100%;'>
-                    <tr><th>Concept</th><th>Amount</th></tr>
-                    """
-                    for _, r in rev.iterrows():
-                        html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                    html += "</table>"
-                    st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.write("No revenue for this month.")
+                    # Revenue breakdown
+                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                    rev = breakdown_dict[month_str]['revenue']
+                    if isinstance(rev, pd.DataFrame) and not rev.empty:
+                        html = """
+                        <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                        <table style='width:100%;'>
+                        <tr><th>Concept</th><th>Amount</th></tr>
+                        """
+                        for _, r in rev.iterrows():
+                            html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                        html += "</table>"
+                        st.markdown(html, unsafe_allow_html=True)
+                    else:
+                        st.write("No revenue for this month.")
 
-                # Expenses breakdown
-                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                exp = breakdown_dict[month_str]['expense']
-                if isinstance(exp, pd.DataFrame) and not exp.empty and len(exp) > 0:
-                    html = """
-                    <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                    <table style='width:100%;'>
-                    <tr><th>Concept</th><th>Amount</th></tr>
-                    """
-                    for _, r in exp.iterrows():
-                        html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                    html += "</table>"
-                    st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.write("No expenses for this month.")
+                    # Expenses breakdown
+                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                    exp = breakdown_dict[month_str]['expense']
+                    if isinstance(exp, pd.DataFrame) and not exp.empty:
+                        html = """
+                        <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                        <table style='width:100%;'>
+                        <tr><th>Concept</th><th>Amount</th></tr>
+                        """
+                        for _, r in exp.iterrows():
+                            html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                        html += "</table>"
+                        st.markdown(html, unsafe_allow_html=True)
+                    else:
+                        st.write("No expenses for this month.")
+            except Exception as e:
+                st.error(f'Breakdown error: {e}')
+                st.text(traceback.format_exc())
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
