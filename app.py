@@ -1000,7 +1000,7 @@ if df is not None:
 
             # Show breakdown for selected month
             selected = grid_response['selected_rows']
-            if selected:
+            if selected and isinstance(selected, list) and len(selected) > 0 and 'Month' in selected[0]:
                 month_str = selected[0]['Month']
                 st.markdown(f"### Breakdown for {month_str}")
                 # Revenue breakdown
