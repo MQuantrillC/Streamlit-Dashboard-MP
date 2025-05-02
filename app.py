@@ -909,30 +909,35 @@ if df is not None:
 
             fin_df = pd.DataFrame(rows, columns=["Item", "Amount", "% of Total", "Type"])
 
-            # Styling function
-            def highlight_financials(row):
-                style = [''] * (len(row)-1)  # Exclude 'Type' column
-                if row['Type'] == 'section_header':
-                    style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * (len(row)-1)
-                elif row['Type'] == 'revenue':
-                    style = ['background-color: #e6ffe6; color: #222;'] * (len(row)-1)
-                elif row['Type'] == 'revenue_total':
-                    style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * (len(row)-1)
-                elif row['Type'] == 'expense':
-                    style = ['background-color: #ffe6e6; color: #222;'] * (len(row)-1)
-                elif row['Type'] == 'expense_total':
-                    style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * (len(row)-1)
-                elif row['Type'] == 'net_profit':
-                    style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * (len(row)-1)
-                elif row['Type'] == 'spacer':
-                    style = ['background-color: #222; color: #222;'] * (len(row)-1)
-                return style
+            # Only apply styling if 'Type' column exists
+            if "Type" in fin_df.columns:
+                def highlight_financials(row):
+                    style = [''] * (len(row)-1)  # Exclude 'Type' column
+                    row_type = row['Type'] if 'Type' in row else ''
+                    if row_type == 'section_header':
+                        style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * (len(row)-1)
+                    elif row_type == 'revenue':
+                        style = ['background-color: #e6ffe6; color: #222;'] * (len(row)-1)
+                    elif row_type == 'revenue_total':
+                        style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * (len(row)-1)
+                    elif row_type == 'expense':
+                        style = ['background-color: #ffe6e6; color: #222;'] * (len(row)-1)
+                    elif row_type == 'expense_total':
+                        style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * (len(row)-1)
+                    elif row_type == 'net_profit':
+                        style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * (len(row)-1)
+                    elif row_type == 'spacer':
+                        style = ['background-color: #222; color: #222;'] * (len(row)-1)
+                    return style
 
-            st.markdown("## 💰 Financial Results Statement")
-            st.dataframe(
-                fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1),
-                use_container_width=True
-            )
+                st.markdown("## 💰 Financial Results Statement")
+                st.dataframe(
+                    fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1),
+                    use_container_width=True
+                )
+            else:
+                st.markdown("## 💰 Financial Results Statement")
+                st.dataframe(fin_df, use_container_width=True)
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
