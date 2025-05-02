@@ -822,7 +822,7 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- Financial Results Statement from "Finances" Sheet ---
+    # --- Enhanced Financial Results Statement from "Finances" Sheet ---
     try:
         client = connect_to_sheets()
         if client:
@@ -863,6 +863,7 @@ if df is not None:
                 .sort_values(ascending=False)
             )
             expenses_total = expenses_by_concept.sum()
+            expenses_percent = (expenses_by_concept / expenses_total * 100).round(2)
 
             # Totals and metrics
             net_result = revenue_total - expenses_total
@@ -877,52 +878,61 @@ if df is not None:
             with col3:
                 st.metric("Net Profit Margin", f"{net_margin_pct:.2f}%")
 
-            # Build styled DataFrame for display
+            # Build enhanced DataFrame for display
             rows = []
-            rows.append(["Revenue", "", "", ""])
+            # Revenue section header
+            rows.append(["REVENUE", "", "", "section_header"])
             for product, value in revenue_by_product.items():
                 rows.append([
-                    f"  {product}",
+                    product,
                     f'S/. {value:,.2f}',
                     f'{revenue_percent[product]:.2f}%',
-                    ""
+                    "revenue"
                 ])
-            rows.append(["Total Revenue", f'S/. {revenue_total:,.2f}', "100.00%", ""])
-
-            rows.append(["Expenses", "", "", ""])
+            rows.append(["Total Revenue", f'S/. {revenue_total:,.2f}', "100.00%", "revenue_total"])
+            # Spacer row
+            rows.append(["", "", "", "spacer"])
+            # Expenses section header
+            rows.append(["EXPENSES", "", "", "section_header"])
             for concept, value in expenses_by_concept.items():
                 rows.append([
-                    f"  {concept}",
+                    concept,
                     f'S/. {value:,.2f}',
-                    "",
-                    ""
+                    f'{expenses_percent[concept]:.2f}%',
+                    "expense"
                 ])
-            rows.append(["Total Expenses", f'S/. {expenses_total:,.2f}', "", ""])
+            rows.append(["Total Expenses", f'S/. {expenses_total:,.2f}', "100.00%", "expense_total"])
+            # Spacer row
+            rows.append(["", "", "", "spacer"])
+            # Net profit row
+            rows.append(["Net Profit (Margin)", f'S/. {net_result:,.2f}', f'{net_margin_pct:.2f}%', "net_profit"])
 
-            rows.append(["Net Profit (Margin)", f'S/. {net_result:,.2f}', "", f'{net_margin_pct:.2f}%'])
-
-            fin_df = pd.DataFrame(rows, columns=["Item", "Amount", "% of Total", "Net Margin %"])
+            fin_df = pd.DataFrame(rows, columns=["Item", "Amount", "% of Total", "Type"])
 
             # Styling function
             def highlight_financials(row):
-                style = [''] * len(row)
-                if row[0] == 'Revenue' or (isinstance(row[0], str) and row[0].startswith('  ') and row.name > 0 and fin_df.iloc[row.name-1,0] == 'Revenue'):
-                    style[1] = 'background-color: #d9f9d9; color: black; font-weight: bold;'  # light green
-                    style[2] = 'background-color: #d9f9d9; color: black;'
-                if row[0] == 'Total Revenue':
-                    style[1] = 'background-color: #00cc00; color: white; font-weight: bold;'  # strong green
-                    style[2] = 'background-color: #00cc00; color: white; font-weight: bold;'
-                if row[0] == 'Expenses' or (isinstance(row[0], str) and row[0].startswith('  ') and row.name > 0 and fin_df.iloc[row.name-1,0] == 'Expenses'):
-                    style[1] = 'background-color: #ffd6d6; color: black; font-weight: bold;'  # light red
-                if row[0] == 'Total Expenses':
-                    style[1] = 'background-color: #ff3333; color: white; font-weight: bold;'  # strong red
-                if row[0] == 'Net Profit (Margin)':
-                    style[1] = 'background-color: #b3d1ff; color: black; font-weight: bold;'  # light blue
-                    style[3] = 'background-color: #b3d1ff; color: black; font-weight: bold;'
+                style = [''] * (len(row)-1)  # Exclude 'Type' column
+                if row['Type'] == 'section_header':
+                    style = ['font-weight: bold; background-color: #222; color: #fff; font-size: 18px;'] * (len(row)-1)
+                elif row['Type'] == 'revenue':
+                    style = ['background-color: #e6ffe6; color: #222;'] * (len(row)-1)
+                elif row['Type'] == 'revenue_total':
+                    style = ['background-color: #00cc00; color: #fff; font-weight: bold;'] * (len(row)-1)
+                elif row['Type'] == 'expense':
+                    style = ['background-color: #ffe6e6; color: #222;'] * (len(row)-1)
+                elif row['Type'] == 'expense_total':
+                    style = ['background-color: #ff3333; color: #fff; font-weight: bold;'] * (len(row)-1)
+                elif row['Type'] == 'net_profit':
+                    style = ['background-color: #b3d1ff; color: #222; font-weight: bold;'] * (len(row)-1)
+                elif row['Type'] == 'spacer':
+                    style = ['background-color: #222; color: #222;'] * (len(row)-1)
                 return style
 
             st.markdown("## 💰 Financial Results Statement")
-            st.dataframe(fin_df.style.apply(highlight_financials, axis=1), use_container_width=True)
+            st.dataframe(
+                fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1),
+                use_container_width=True
+            )
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
