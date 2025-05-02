@@ -947,6 +947,56 @@ if df is not None:
             )
             st.plotly_chart(fig, use_container_width=True)
 
+            # --- Monthly Revenue and Expense Table with Expandable Breakdown ---
+            st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
+            monthly_summary = pd.DataFrame({
+                'Revenue': monthly_income,
+                'Expenses': monthly_expense
+            })
+            monthly_summary.index = monthly_summary.index.strftime('%B %Y')
+            monthly_summary = monthly_summary.reset_index().rename(columns={'index': 'Month'})
+
+            # Show summary table
+            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
+
+            # Expanders for breakdown
+            for i, row in monthly_summary.iterrows():
+                month_str = row['Month']
+                with st.expander(f"Breakdown for {month_str}"):
+                    # Revenue breakdown
+                    month_dt = pd.to_datetime(month_str)
+                    month_mask = (finances_df['Month'] == month_dt)
+                    month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                    month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+
+                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                    if not month_income.empty:
+                        html = """
+                        <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                        <table style='width:100%;'>
+                        <tr><th>Concept</th><th>Amount</th></tr>
+                        """
+                        for _, r in month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index().iterrows():
+                            html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                        html += "</table>"
+                        st.markdown(html, unsafe_allow_html=True)
+                    else:
+                        st.write("No revenue for this month.")
+
+                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                    if not month_expense.empty:
+                        html = """
+                        <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
+                        <table style='width:100%;'>
+                        <tr><th>Concept</th><th>Amount</th></tr>
+                        """
+                        for _, r in month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index().iterrows():
+                            html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
+                        html += "</table>"
+                        st.markdown(html, unsafe_allow_html=True)
+                    else:
+                        st.write("No expenses for this month.")
+
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
 
