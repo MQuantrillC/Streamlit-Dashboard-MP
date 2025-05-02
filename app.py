@@ -937,9 +937,8 @@ if df is not None:
                     return style
 
                 st.markdown("## 💰 Financial Results Statement")
-                st.dataframe(
-                    fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1),
-                    use_container_width=True
+                st.table(
+                    fin_df.drop(columns=["Type"]).style.apply(highlight_financials, axis=1)
                 )
             else:
                 st.markdown("## 💰 Financial Results Statement")
