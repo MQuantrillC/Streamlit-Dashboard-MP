@@ -56,23 +56,21 @@ def connect_to_sheets():
         st.error("Please check your Streamlit secrets configuration.")
         return None
 
-# Function to load data
-def load_data():
-    try:
-        client = connect_to_sheets()
-        if client:
-            # Replace with your actual spreadsheet key
-            spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
-            worksheet = spreadsheet.get_worksheet(0)  # Get the first worksheet
-            data = worksheet.get_all_records()
-            return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        return None
+# --- CACHED DATA LOADERS ---
+@st.cache_data(ttl=600)
+def load_sheet(sheet_name):
+    client = connect_to_sheets()
+    if client:
+        spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+        worksheet = spreadsheet.worksheet(sheet_name)
+        data = worksheet.get_all_values()
+        return pd.DataFrame(data)
+    return pd.DataFrame()
 
 # Main content
 st.write("Loading data...")
-df = load_data()
+df = load_sheet('Sales')
+st.write("Loaded sales data")
 
 # Create a new column 'Payment Amount (Numeric)' for analytics
 if df is not None and 'Payment Amount' in df.columns:
@@ -625,15 +623,10 @@ if df is not None:
     try:
         client = connect_to_sheets()
         if client:
-            # Load Inventory data
-            inventory_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Inventory')
-            inventory_data = inventory_sheet.get_all_values()
-            inventory_df = pd.DataFrame(inventory_data)
-
-            # Load Finances data
-            finances_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Finances')
-            finances_data = finances_sheet.get_all_values()
-            finances_df = pd.DataFrame(finances_data)
+            inventory_df = load_sheet('Inventory')
+            st.write("Loaded inventory data")
+            finances_df = load_sheet('Finances')
+            st.write("Loaded finances data")
 
             st.markdown('## 📦 Inventory Analytics')
 
