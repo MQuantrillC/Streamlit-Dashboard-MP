@@ -798,7 +798,7 @@ if df is not None:
                                 try:
                                     if float(df.loc[idx, col]) != float(curr_inv_table.loc[idx, col]):
                                         styles.loc[idx, col] = 'background-color: yellow'
-                except:
+                                except (ValueError, KeyError, TypeError):
                                     pass
                 
                 # Make Total Flavour row and Total Mg column bold with larger font and distinct styling
