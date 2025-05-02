@@ -1006,7 +1006,7 @@ if df is not None:
                 # Revenue breakdown
                 st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                 rev = breakdown_dict[month_str]['revenue']
-                if not rev.empty:
+                if isinstance(rev, pd.DataFrame) and not rev.empty:
                     html = """
                     <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
                     <table style='width:100%;'>
@@ -1021,7 +1021,7 @@ if df is not None:
                 # Expenses breakdown
                 st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                 exp = breakdown_dict[month_str]['expense']
-                if not exp.empty:
+                if isinstance(exp, pd.DataFrame) and not exp.empty:
                     html = """
                     <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
                     <table style='width:100%;'>
