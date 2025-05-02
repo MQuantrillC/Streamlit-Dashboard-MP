@@ -59,12 +59,12 @@ def connect_to_sheets():
         st.error("Please check your Streamlit secrets configuration.")
         return None
 
-# Function to load data
+# Add this decorator to cache data loading
+@st.cache_data(ttl=300)
 def load_data():
     try:
         client = connect_to_sheets()
         if client:
-            # Replace with your actual spreadsheet key
             spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
             worksheet = spreadsheet.get_worksheet(0)  # Get the first worksheet
             data = worksheet.get_all_records()
@@ -1050,8 +1050,20 @@ if df is not None:
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
 
-    # Raw data
-    st.markdown("**Raw Data**")
-    st.dataframe(df)
+    # Similarly cache inventory and finances loads if you have separate functions
+    @st.cache_data(ttl=300)
+    def load_finances_data():
+        try:
+            client = connect_to_sheets()
+            if client:
+                spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+                finances_ws = spreadsheet.worksheet('Finances')
+                finances_data = finances_ws.get_all_records()
+                finances_df = pd.DataFrame(finances_data)
+                return finances_df
+        except Exception as e:
+            st.error(f"Error loading finances data: {str(e)}")
+            return None
+
 else:
     st.error("Please make sure you have set up the Google Sheets credentials correctly.") 
