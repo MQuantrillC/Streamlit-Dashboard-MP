@@ -640,8 +640,20 @@ if df is not None:
                         'expense': exp
                     }
 
-                # Show summary table with Balance column
-                st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}))
+                # Show summary table with Balance column and colored Balance cells
+                def balance_color(val):
+                    try:
+                        if val > 0:
+                            return 'color: #fff; background-color: #39d353; font-weight: bold;'
+                        elif val < 0:
+                            return 'color: #fff; background-color: #ff6666; font-weight: bold;'
+                        else:
+                            return ''
+                    except:
+                        return ''
+
+                styled_monthly_summary = monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}).applymap(balance_color, subset=['Balance'])
+                st.table(styled_monthly_summary)
                 month_options = monthly_summary['Month'].tolist()
                 selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
 
@@ -1063,8 +1075,20 @@ if df is not None:
                     'expense': exp
                 }
 
-            # Show summary table with Balance column
-            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}))
+            # Show summary table with Balance column and colored Balance cells
+            def balance_color(val):
+                try:
+                    if val > 0:
+                        return 'color: #fff; background-color: #39d353; font-weight: bold;'
+                    elif val < 0:
+                        return 'color: #fff; background-color: #ff6666; font-weight: bold;'
+                    else:
+                        return ''
+                except:
+                    return ''
+
+            styled_monthly_summary = monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}).applymap(balance_color, subset=['Balance'])
+            st.table(styled_monthly_summary)
             month_options = monthly_summary['Month'].tolist()
             selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
 
@@ -1152,4 +1176,4 @@ if df is not None:
             return None
 
 else:
-    st.error("Please make sure you have set up the Google Sheets credentials correctly.")
+    st.error("Please make sure you have set up the Google Sheets credentials correctly.") 
