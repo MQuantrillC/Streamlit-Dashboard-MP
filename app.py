@@ -621,6 +621,34 @@ if df is not None:
                 # Display the table
                 st.markdown(f'**{summary_view} Sales Summary**')
                 st.dataframe(styled_monthly, use_container_width=True)
+
+                # Show summary table
+                st.table(monthly_summary.style.format({'Sales_Quantity': '{0:,.0f}', 'Sales_Amount': 'S/. {0:,.2f}'}))
+
+                # Use selectbox for month selection
+                month_options = monthly_summary['Month'].tolist()
+                selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
+
+                if selected_month in breakdown_dict:
+                    st.markdown(f"### Breakdown for {selected_month}")
+
+                    # --- Revenue ---
+                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                    rev = breakdown_dict[selected_month]['revenue']
+                    if isinstance(rev, pd.DataFrame) and not rev.empty:
+                        st.dataframe(rev)
+                    else:
+                        st.write("No revenue for this month.")
+
+                    # --- Expenses ---
+                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                    exp = breakdown_dict[selected_month]['expense']
+                    if isinstance(exp, pd.DataFrame) and not exp.empty:
+                        st.dataframe(exp)
+                    else:
+                        st.write("No expenses for this month.")
+                else:
+                    st.info("No breakdown available for the selected month.")
             else:
                 st.warning("No data available for the selected time period.")
 
@@ -958,44 +986,33 @@ if df is not None:
                 'Expenses': monthly_expense.values
             })
 
-            st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
+            # Show summary table
+            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
 
-            # Configure AgGrid for clickable rows
-            gb = GridOptionsBuilder.from_dataframe(monthly_summary)
-            gb.configure_selection(selection_mode='single', use_checkbox=False)
-            grid_options = gb.build()
+            # Use selectbox for month selection
+            month_options = monthly_summary['Month'].tolist()
+            selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
 
-            grid_response = AgGrid(
-                monthly_summary,
-                gridOptions=grid_options,
-                update_mode=GridUpdateMode.SELECTION_CHANGED,
-                theme="streamlit",
-                fit_columns_on_grid_load=True
-            )
-
-            selected_row = grid_response['selected_rows']
-            if selected_row:
-                selected_month = selected_row[0]['Month']
+            if selected_month in breakdown_dict:
                 st.markdown(f"### Breakdown for {selected_month}")
 
-                if selected_month in breakdown_dict:
-                    # --- Revenue ---
-                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                    rev = breakdown_dict[selected_month]['revenue']
-                    if isinstance(rev, pd.DataFrame) and not rev.empty:
-                        st.dataframe(rev)
-                    else:
-                        st.write("No revenue for this month.")
-
-                    # --- Expenses ---
-                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                    exp = breakdown_dict[selected_month]['expense']
-                    if isinstance(exp, pd.DataFrame) and not exp.empty:
-                        st.dataframe(exp)
-                    else:
-                        st.write("No expenses for this month.")
+                # --- Revenue ---
+                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                rev = breakdown_dict[selected_month]['revenue']
+                if isinstance(rev, pd.DataFrame) and not rev.empty:
+                    st.dataframe(rev)
                 else:
-                    st.info("No breakdown available for the selected month.")
+                    st.write("No revenue for this month.")
+
+                # --- Expenses ---
+                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                exp = breakdown_dict[selected_month]['expense']
+                if isinstance(exp, pd.DataFrame) and not exp.empty:
+                    st.dataframe(exp)
+                else:
+                    st.write("No expenses for this month.")
+            else:
+                st.info("No breakdown available for the selected month.")
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
