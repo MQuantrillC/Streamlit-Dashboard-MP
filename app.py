@@ -1006,14 +1006,9 @@ if df is not None:
                     isinstance(selected, list)
                     and len(selected) > 0
                     and isinstance(selected[0], dict)
+                    and 'Month' in selected[0]
                 ):
-                    # Get the index of the selected row
-                    selected_idx = selected[0].get('_selectedRowNodeInfo', {}).get('nodeRowIndex')
-                    if selected_idx is None:
-                        # Fallback: try to match by month string
-                        month_str = selected[0]['Month']
-                    else:
-                        month_str = monthly_summary.iloc[selected_idx]['Month']
+                    month_str = selected[0]['Month']
                     st.markdown(f"### Breakdown for {month_str}")
 
                     # Revenue breakdown
