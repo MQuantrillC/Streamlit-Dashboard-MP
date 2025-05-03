@@ -622,6 +622,9 @@ if df is not None:
                 st.markdown(f'**{summary_view} Sales Summary**')
                 st.dataframe(styled_monthly, use_container_width=True)
 
+                # Add Balance column
+                monthly_summary['Balance'] = monthly_summary['Sales_Amount'] - monthly_summary['Sales_Amount']
+
                 # Define breakdown_dict immediately after monthly_summary
                 breakdown_dict = {}
                 for i, row in monthly_summary.iterrows():
@@ -1045,6 +1048,21 @@ if df is not None:
             # Add Balance column
             monthly_summary['Balance'] = monthly_summary['Revenue'] - monthly_summary['Expenses']
 
+            # Define breakdown_dict immediately after monthly_summary
+            breakdown_dict = {}
+            for i, row in monthly_summary.iterrows():
+                month_str = row['Month']
+                month_dt = pd.to_datetime(month_str)
+                month_mask = (finances_df['Month'] == month_dt)
+                month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+                rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                breakdown_dict[month_str] = {
+                    'revenue': rev,
+                    'expense': exp
+                }
+
             # Show summary table with Balance column
             st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}))
             month_options = monthly_summary['Month'].tolist()
@@ -1134,4 +1152,4 @@ if df is not None:
             return None
 
 else:
-    st.error("Please make sure you have set up the Google Sheets credentials correctly.") 
+    st.error("Please make sure you have set up the Google Sheets credentials correctly.")
