@@ -995,7 +995,13 @@ if df is not None:
             .fin-net-profit { background: #b3d1ff; color: #222; font-weight: bold; }
             .fin-spacer { background: #222; color: #222; height: 8px; }
             </style>
-            <table class=\"fin-table\">\n    <tr class=\"fin-header\">\n        <th>Item</th>\n        <th>Amount</th>\n        <th>% of Total</th>\n    </tr>\n"""
+            <table class="fin-table">
+                <tr class="fin-header">
+                    <th>Item</th>
+                    <th>Amount</th>
+                    <th>% of Total</th>
+                </tr>
+            """
             # Revenue section
             html += '<tr class="fin-revenue-header"><td colspan="3">REVENUE</td></tr>'
             for product, value in revenue_by_product.items():
