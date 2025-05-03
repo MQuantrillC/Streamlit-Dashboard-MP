@@ -983,25 +983,19 @@ if df is not None:
             # Build enhanced HTML table for display
             html = """
             <style>
-            .fin-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
-            .fin-table th, .fin-table td { padding: 8px 12px; text-align: left; }
-            .fin-header { font-size: 1.3em; font-weight: bold; background: #222; color: #fff; }
-            .fin-revenue-header { background: #007f3f; color: #fff; font-weight: bold; font-size: 1.1em; }
+            .fin-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+            .fin-table th, .fin-table td { padding: 4px 8px; text-align: left; }
+            .fin-header { font-size: 1.15em; font-weight: bold; background: #222; color: #fff; }
+            .fin-revenue-header { background: #007f3f; color: #fff; font-weight: bold; font-size: 1.05em; }
             .fin-revenue { background: #e6ffe6; color: #222; }
             .fin-revenue-total { background: #39d353; color: #fff; font-weight: bold; }
-            .fin-expenses-header { background: #b30000; color: #fff; font-weight: bold; font-size: 1.1em; }
+            .fin-expenses-header { background: #b30000; color: #fff; font-weight: bold; font-size: 1.05em; }
             .fin-expense { background: #ffe6e6; color: #222; }
             .fin-expense-total { background: #ff6666; color: #fff; font-weight: bold; }
             .fin-net-profit { background: #b3d1ff; color: #222; font-weight: bold; }
             .fin-spacer { background: #222; color: #222; height: 8px; }
             </style>
-            <table class="fin-table">
-                <tr class="fin-header">
-                    <th>Item</th>
-                    <th>Amount</th>
-                    <th>% of Total</th>
-                </tr>
-            """
+            <table class=\"fin-table\">\n    <tr class=\"fin-header\">\n        <th>Item</th>\n        <th>Amount</th>\n        <th>% of Total</th>\n    </tr>\n"""
             # Revenue section
             html += '<tr class="fin-revenue-header"><td colspan="3">REVENUE</td></tr>'
             for product, value in revenue_by_product.items():
