@@ -644,18 +644,56 @@ if df is not None:
 
                 if selected_month in breakdown_dict:
                     st.markdown(f"### Breakdown for {selected_month}")
-                    # --- Revenue ---
+                    # --- Revenue Table (Green) ---
                     st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                     rev = breakdown_dict[selected_month]['revenue']
                     if isinstance(rev, pd.DataFrame) and not rev.empty:
-                        st.dataframe(rev)
+                        rev_total = rev['Amount (Local Currency)'].sum()
+                        rev_html = """
+                        <style>
+                        .rev-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+                        .rev-table th, .rev-table td { padding: 8px 12px; text-align: left; }
+                        .rev-header { background: #007f3f; color: #fff; font-weight: bold; }
+                        .rev-row { background: #e6ffe6; color: #222; }
+                        .rev-total { background: #39d353; color: #fff; font-weight: bold; }
+                        </style>
+                        <table class="rev-table">
+                            <tr class="rev-header">
+                                <th>Concept</th>
+                                <th>Amount (Local Currency)</th>
+                            </tr>
+                        """
+                        for _, row in rev.iterrows():
+                            rev_html += f'<tr class="rev-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td></tr>'
+                        rev_html += f'<tr class="rev-total"><td>Total Revenue</td><td>S/. {rev_total:,.2f}</td></tr>'
+                        rev_html += '</table>'
+                        st.markdown(rev_html, unsafe_allow_html=True)
                     else:
                         st.write("No revenue for this month.")
-                    # --- Expenses ---
+                    # --- Expenses Table (Red) ---
                     st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                     exp = breakdown_dict[selected_month]['expense']
                     if isinstance(exp, pd.DataFrame) and not exp.empty:
-                        st.dataframe(exp)
+                        exp_total = exp['Amount (Local Currency)'].sum()
+                        exp_html = """
+                        <style>
+                        .exp-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+                        .exp-table th, .exp-table td { padding: 8px 12px; text-align: left; }
+                        .exp-header { background: #b30000; color: #fff; font-weight: bold; }
+                        .exp-row { background: #ffe6e6; color: #222; }
+                        .exp-total { background: #ff6666; color: #fff; font-weight: bold; }
+                        </style>
+                        <table class="exp-table">
+                            <tr class="exp-header">
+                                <th>Concept</th>
+                                <th>Amount (Local Currency)</th>
+                            </tr>
+                        """
+                        for _, row in exp.iterrows():
+                            exp_html += f'<tr class="exp-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td></tr>'
+                        exp_html += f'<tr class="exp-total"><td>Total Expenses</td><td>S/. {exp_total:,.2f}</td></tr>'
+                        exp_html += '</table>'
+                        st.markdown(exp_html, unsafe_allow_html=True)
                     else:
                         st.write("No expenses for this month.")
                 else:
@@ -1019,18 +1057,56 @@ if df is not None:
 
             if selected_month in breakdown_dict:
                 st.markdown(f"### Breakdown for {selected_month}")
-                # --- Revenue ---
+                # --- Revenue Table (Green) ---
                 st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                 rev = breakdown_dict[selected_month]['revenue']
                 if isinstance(rev, pd.DataFrame) and not rev.empty:
-                    st.dataframe(rev)
+                    rev_total = rev['Amount (Local Currency)'].sum()
+                    rev_html = """
+                    <style>
+                    .rev-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+                    .rev-table th, .rev-table td { padding: 8px 12px; text-align: left; }
+                    .rev-header { background: #007f3f; color: #fff; font-weight: bold; }
+                    .rev-row { background: #e6ffe6; color: #222; }
+                    .rev-total { background: #39d353; color: #fff; font-weight: bold; }
+                    </style>
+                    <table class="rev-table">
+                        <tr class="rev-header">
+                            <th>Concept</th>
+                            <th>Amount (Local Currency)</th>
+                        </tr>
+                    """
+                    for _, row in rev.iterrows():
+                        rev_html += f'<tr class="rev-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td></tr>'
+                    rev_html += f'<tr class="rev-total"><td>Total Revenue</td><td>S/. {rev_total:,.2f}</td></tr>'
+                    rev_html += '</table>'
+                    st.markdown(rev_html, unsafe_allow_html=True)
                 else:
                     st.write("No revenue for this month.")
-                # --- Expenses ---
+                # --- Expenses Table (Red) ---
                 st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                 exp = breakdown_dict[selected_month]['expense']
                 if isinstance(exp, pd.DataFrame) and not exp.empty:
-                    st.dataframe(exp)
+                    exp_total = exp['Amount (Local Currency)'].sum()
+                    exp_html = """
+                    <style>
+                    .exp-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+                    .exp-table th, .exp-table td { padding: 8px 12px; text-align: left; }
+                    .exp-header { background: #b30000; color: #fff; font-weight: bold; }
+                    .exp-row { background: #ffe6e6; color: #222; }
+                    .exp-total { background: #ff6666; color: #fff; font-weight: bold; }
+                    </style>
+                    <table class="exp-table">
+                        <tr class="exp-header">
+                            <th>Concept</th>
+                            <th>Amount (Local Currency)</th>
+                        </tr>
+                    """
+                    for _, row in exp.iterrows():
+                        exp_html += f'<tr class="exp-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td></tr>'
+                    exp_html += f'<tr class="exp-total"><td>Total Expenses</td><td>S/. {exp_total:,.2f}</td></tr>'
+                    exp_html += '</table>'
+                    st.markdown(exp_html, unsafe_allow_html=True)
                 else:
                     st.write("No expenses for this month.")
             else:
