@@ -1014,6 +1014,22 @@ if df is not None:
             else:
                 st.info("No breakdown available for the selected month.")
 
+            # Prepare breakdown data for each month
+            breakdown_dict = {}
+            for i, row in monthly_summary.iterrows():
+                month_str = row['Month']
+                # Convert month string back to datetime to match finances_df['Month']
+                month_dt = pd.to_datetime(month_str)
+                month_mask = (finances_df['Month'] == month_dt)
+                month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+                rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                breakdown_dict[month_str] = {
+                    'revenue': rev,
+                    'expense': exp
+                }
+
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
 
