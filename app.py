@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import json
 import numpy as np  # Add this at the top if not already imported
-from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
 import traceback
 
 # Page config
@@ -958,46 +958,44 @@ if df is not None:
                 'Expenses': monthly_expense.values
             })
 
-            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
+            st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
 
-            # Use selectbox for month selection
-            month_options = monthly_summary['Month'].tolist()
-            selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
+            # Configure AgGrid for clickable rows
+            gb = GridOptionsBuilder.from_dataframe(monthly_summary)
+            gb.configure_selection(selection_mode='single', use_checkbox=False)
+            grid_options = gb.build()
 
-            if selected_month in breakdown_dict:
+            grid_response = AgGrid(
+                monthly_summary,
+                gridOptions=grid_options,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                theme="streamlit",
+                fit_columns_on_grid_load=True
+            )
+
+            selected_row = grid_response['selected_rows']
+            if selected_row:
+                selected_month = selected_row[0]['Month']
                 st.markdown(f"### Breakdown for {selected_month}")
-                # Revenue breakdown
-                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                rev = breakdown_dict[selected_month]['revenue']
-                if isinstance(rev, pd.DataFrame) and not rev.empty:
-                    html = """
-                    <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                    <table style='width:100%;'>
-                    <tr><th>Concept</th><th>Amount</th></tr>
-                    """
-                    for _, r in rev.iterrows():
-                        html += f"<tr class='fin-revenue-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                    html += "</table>"
-                    st.markdown(html, unsafe_allow_html=True)
+
+                if selected_month in breakdown_dict:
+                    # --- Revenue ---
+                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                    rev = breakdown_dict[selected_month]['revenue']
+                    if isinstance(rev, pd.DataFrame) and not rev.empty:
+                        st.dataframe(rev)
+                    else:
+                        st.write("No revenue for this month.")
+
+                    # --- Expenses ---
+                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                    exp = breakdown_dict[selected_month]['expense']
+                    if isinstance(exp, pd.DataFrame) and not exp.empty:
+                        st.dataframe(exp)
+                    else:
+                        st.write("No expenses for this month.")
                 else:
-                    st.write("No revenue for this month.")
-                # Expenses breakdown
-                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                exp = breakdown_dict[selected_month]['expense']
-                if isinstance(exp, pd.DataFrame) and not exp.empty:
-                    html = """
-                    <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
-                    <table style='width:100%;'>
-                    <tr><th>Concept</th><th>Amount</th></tr>
-                    """
-                    for _, r in exp.iterrows():
-                        html += f"<tr class='fin-expense-item'><td>{r['Concept']}</td><td>S/. {r['Amount (Local Currency)']:,.2f}</td></tr>"
-                    html += "</table>"
-                    st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.write("No expenses for this month.")
-            else:
-                st.info("No breakdown available for the selected month.")
+                    st.info("No breakdown available for the selected month.")
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
