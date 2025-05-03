@@ -1006,15 +1006,19 @@ if df is not None:
                     isinstance(selected, list)
                     and len(selected) > 0
                     and isinstance(selected[0], dict)
-                    and 'Month' in selected[0]
-                    and selected[0]['Month'] in breakdown_dict
                 ):
-                    month_str = selected[0]['Month']
+                    # Get the index of the selected row
+                    selected_idx = selected[0].get('_selectedRowNodeInfo', {}).get('nodeRowIndex')
+                    if selected_idx is None:
+                        # Fallback: try to match by month string
+                        month_str = selected[0]['Month']
+                    else:
+                        month_str = monthly_summary.iloc[selected_idx]['Month']
                     st.markdown(f"### Breakdown for {month_str}")
 
                     # Revenue breakdown
                     st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                    rev = breakdown_dict[month_str]['revenue']
+                    rev = breakdown_dict.get(month_str, {}).get('revenue', None)
                     if isinstance(rev, pd.DataFrame) and not rev.empty:
                         html = """
                         <style>.fin-revenue-item {background: #e6ffe6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
@@ -1030,7 +1034,7 @@ if df is not None:
 
                     # Expenses breakdown
                     st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                    exp = breakdown_dict[month_str]['expense']
+                    exp = breakdown_dict.get(month_str, {}).get('expense', None)
                     if isinstance(exp, pd.DataFrame) and not exp.empty:
                         html = """
                         <style>.fin-expense-item {background: #ffe6e6; color: #222; padding: 4px 8px; border-radius: 4px;}</style>
@@ -1043,6 +1047,8 @@ if df is not None:
                         st.markdown(html, unsafe_allow_html=True)
                     else:
                         st.write("No expenses for this month.")
+                else:
+                    st.info("Select a row in the table above to see the breakdown.")
             except Exception as e:
                 st.error(f'Breakdown error: {e}')
                 st.text(traceback.format_exc())
