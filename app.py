@@ -622,16 +622,28 @@ if df is not None:
                 st.markdown(f'**{summary_view} Sales Summary**')
                 st.dataframe(styled_monthly, use_container_width=True)
 
-                # Show summary table
-                st.table(monthly_summary.style.format({'Sales_Quantity': '{0:,.0f}', 'Sales_Amount': 'S/. {0:,.2f}'}))
+                # Define breakdown_dict immediately after monthly_summary
+                breakdown_dict = {}
+                for i, row in monthly_summary.iterrows():
+                    month_str = row['Month']
+                    month_dt = pd.to_datetime(month_str)
+                    month_mask = (finances_df['Month'] == month_dt)
+                    month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                    month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+                    rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                    exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                    breakdown_dict[month_str] = {
+                        'revenue': rev,
+                        'expense': exp
+                    }
 
-                # Use selectbox for month selection
+                # Show summary table
+                st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
                 month_options = monthly_summary['Month'].tolist()
                 selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
 
                 if selected_month in breakdown_dict:
                     st.markdown(f"### Breakdown for {selected_month}")
-
                     # --- Revenue ---
                     st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                     rev = breakdown_dict[selected_month]['revenue']
@@ -639,7 +651,6 @@ if df is not None:
                         st.dataframe(rev)
                     else:
                         st.write("No revenue for this month.")
-
                     # --- Expenses ---
                     st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                     exp = breakdown_dict[selected_month]['expense']
@@ -986,39 +997,10 @@ if df is not None:
                 'Expenses': monthly_expense.values
             })
 
-            # Show summary table
-            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
-
-            # Use selectbox for month selection
-            month_options = monthly_summary['Month'].tolist()
-            selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
-
-            if selected_month in breakdown_dict:
-                st.markdown(f"### Breakdown for {selected_month}")
-
-                # --- Revenue ---
-                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                rev = breakdown_dict[selected_month]['revenue']
-                if isinstance(rev, pd.DataFrame) and not rev.empty:
-                    st.dataframe(rev)
-                else:
-                    st.write("No revenue for this month.")
-
-                # --- Expenses ---
-                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                exp = breakdown_dict[selected_month]['expense']
-                if isinstance(exp, pd.DataFrame) and not exp.empty:
-                    st.dataframe(exp)
-                else:
-                    st.write("No expenses for this month.")
-            else:
-                st.info("No breakdown available for the selected month.")
-
-            # Prepare breakdown data for each month
+            # Define breakdown_dict immediately after monthly_summary
             breakdown_dict = {}
             for i, row in monthly_summary.iterrows():
                 month_str = row['Month']
-                # Convert month string back to datetime to match finances_df['Month']
                 month_dt = pd.to_datetime(month_str)
                 month_mask = (finances_df['Month'] == month_dt)
                 month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
@@ -1029,6 +1011,30 @@ if df is not None:
                     'revenue': rev,
                     'expense': exp
                 }
+
+            # Show summary table
+            st.table(monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}'}))
+            month_options = monthly_summary['Month'].tolist()
+            selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
+
+            if selected_month in breakdown_dict:
+                st.markdown(f"### Breakdown for {selected_month}")
+                # --- Revenue ---
+                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                rev = breakdown_dict[selected_month]['revenue']
+                if isinstance(rev, pd.DataFrame) and not rev.empty:
+                    st.dataframe(rev)
+                else:
+                    st.write("No revenue for this month.")
+                # --- Expenses ---
+                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                exp = breakdown_dict[selected_month]['expense']
+                if isinstance(exp, pd.DataFrame) and not exp.empty:
+                    st.dataframe(exp)
+                else:
+                    st.write("No expenses for this month.")
+            else:
+                st.info("No breakdown available for the selected month.")
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
