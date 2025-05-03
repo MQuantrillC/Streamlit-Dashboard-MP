@@ -644,10 +644,11 @@ if df is not None:
 
                 if selected_month in breakdown_dict:
                     st.markdown(f"### Breakdown for {selected_month}")
-                    # --- Revenue Table (Green, Smaller, With %) ---
+                    # --- Revenue Table (Green, Smaller, With %, Descending Order) ---
                     st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                     rev = breakdown_dict[selected_month]['revenue']
                     if isinstance(rev, pd.DataFrame) and not rev.empty:
+                        rev = rev.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
                         rev_total = rev['Amount (Local Currency)'].sum()
                         rev = rev.copy()
                         rev['% of Total'] = rev['Amount (Local Currency)'] / rev_total * 100
@@ -673,10 +674,11 @@ if df is not None:
                         st.markdown(rev_html, unsafe_allow_html=True)
                     else:
                         st.write("No revenue for this month.")
-                    # --- Expenses Table (Red, Smaller, With %) ---
+                    # --- Expenses Table (Red, Smaller, With %, Descending Order) ---
                     st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                     exp = breakdown_dict[selected_month]['expense']
                     if isinstance(exp, pd.DataFrame) and not exp.empty:
+                        exp = exp.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
                         exp_total = exp['Amount (Local Currency)'].sum()
                         exp = exp.copy()
                         exp['% of Total'] = exp['Amount (Local Currency)'] / exp_total * 100
@@ -1063,10 +1065,11 @@ if df is not None:
 
             if selected_month in breakdown_dict:
                 st.markdown(f"### Breakdown for {selected_month}")
-                # --- Revenue Table (Green, Smaller, With %) ---
+                # --- Revenue Table (Green, Smaller, With %, Descending Order) ---
                 st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
                 rev = breakdown_dict[selected_month]['revenue']
                 if isinstance(rev, pd.DataFrame) and not rev.empty:
+                    rev = rev.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
                     rev_total = rev['Amount (Local Currency)'].sum()
                     rev = rev.copy()
                     rev['% of Total'] = rev['Amount (Local Currency)'] / rev_total * 100
@@ -1092,10 +1095,11 @@ if df is not None:
                     st.markdown(rev_html, unsafe_allow_html=True)
                 else:
                     st.write("No revenue for this month.")
-                # --- Expenses Table (Red, Smaller, With %) ---
+                # --- Expenses Table (Red, Smaller, With %, Descending Order) ---
                 st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
                 exp = breakdown_dict[selected_month]['expense']
                 if isinstance(exp, pd.DataFrame) and not exp.empty:
+                    exp = exp.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
                     exp_total = exp['Amount (Local Currency)'].sum()
                     exp = exp.copy()
                     exp['% of Total'] = exp['Amount (Local Currency)'] / exp_total * 100
@@ -1143,4 +1147,4 @@ if df is not None:
             return None
 
 else:
-    st.error("Please make sure you have set up the Google Sheets credentials correctly.") 
+    st.error("Please make sure you have set up the Google Sheets credentials correctly.")
