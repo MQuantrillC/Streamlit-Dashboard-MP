@@ -991,6 +991,41 @@ if df is not None:
                     st.markdown('#### Top 5 Orders with Least Days to Arrival')
                     top5_least = orders_df.sort_values('Days', ascending=True).head(5)[['Order #', 'Days']]
                     st.table(top5_least.reset_index(drop=True))
+
+                # Bar chart of top 5 orders with highest unitary profit (%)
+                if 'Unitary Profit (%)' in orders_df.columns:
+                    # Clean and convert to float (remove % and handle commas)
+                    orders_df['Unitary Profit (%) Numeric'] = (
+                        orders_df['Unitary Profit (%)']
+                        .astype(str)
+                        .str.replace('%', '', regex=False)
+                        .str.replace(',', '', regex=False)
+                        .str.extract(r'([\d\.]+)')[0]
+                        .astype(float)
+                    )
+                    top5_profit = orders_df.sort_values('Unitary Profit (%) Numeric', ascending=False).head(5)
+                    import plotly.express as px
+                    fig_bar = px.bar(
+                        top5_profit,
+                        x='Order #',
+                        y='Unitary Profit (%) Numeric',
+                        text='Unitary Profit (%)',
+                        labels={'Unitary Profit (%) Numeric': 'Unitary Profit (%)'},
+                        title='Top 5 Orders with Highest Unitary Profit (%)',
+                        color='Unitary Profit (%) Numeric',
+                        color_continuous_scale='Greens',
+                    )
+                    fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+                    fig_bar.update_layout(
+                        yaxis_tickformat='.2f',
+                        xaxis_title='Order #',
+                        yaxis_title='Unitary Profit (%)',
+                        showlegend=False,
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(size=16)
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True)
             else:
                 st.warning("'Order #' or 'Days' column not found in Orders sheet.")
     except Exception as e:
