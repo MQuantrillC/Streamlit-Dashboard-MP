@@ -963,36 +963,33 @@ if df is not None:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Summary statistics
+                # Summary statistics as metric cards
                 days_stats = orders_df['Days'].describe()
-                st.markdown('### Summary Statistics for Days to Arrival')
-                st.write({
-                    'Mean': f"{days_stats['mean']:.2f}",
-                    'Median': f"{orders_df['Days'].median():.2f}",
-                    'Min': int(days_stats['min']),
-                    'Max': int(days_stats['max']),
-                    'Std': f"{days_stats['std']:.2f}",
-                    'Count': int(days_stats['count'])
-                })
+                mean_days = days_stats['mean']
+                median_days = orders_df['Days'].median()
+                std_days = days_stats['std']
+                min_days = int(days_stats['min'])
+                max_days = int(days_stats['max'])
+                count_days = int(days_stats['count'])
 
-                # Highlight outliers (orders with Days > Q3 + 1.5*IQR or < Q1 - 1.5*IQR)
-                Q1 = orders_df['Days'].quantile(0.25)
-                Q3 = orders_df['Days'].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
-                orders_df['Outlier'] = ((orders_df['Days'] < lower_bound) | (orders_df['Days'] > upper_bound))
+                st.markdown('### Days to Arrival - Key Metrics')
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Mean Days to Arrival", f"{mean_days:.2f}")
+                with col2:
+                    st.metric("Median Days to Arrival", f"{median_days:.2f}")
+                with col3:
+                    st.metric("Std Dev (Days)", f"{std_days:.2f}")
 
-                # Table with outlier highlight
-                def highlight_outlier(val, is_outlier):
-                    if is_outlier:
-                        return 'background-color: #ff6666; color: white; font-weight: bold;'
-                    return ''
-                styled_orders = orders_df[['Order #', 'Days', 'Outlier']].style.apply(
-                    lambda row: [highlight_outlier(row['Days'], row['Outlier']), '', ''], axis=1, subset=['Days', 'Order #', 'Outlier']
-                )
-                st.markdown('### Order # and Days Table (Outliers Highlighted)')
-                st.dataframe(styled_orders, use_container_width=True)
+                # Top 5 orders with most days
+                st.markdown('#### Top 5 Orders with Most Days to Arrival')
+                top5_most = orders_df.sort_values('Days', ascending=False).head(5)[['Order #', 'Days']]
+                st.table(top5_most.reset_index(drop=True))
+
+                # Top 5 orders with least days
+                st.markdown('#### Top 5 Orders with Least Days to Arrival')
+                top5_least = orders_df.sort_values('Days', ascending=True).head(5)[['Order #', 'Days']]
+                st.table(top5_least.reset_index(drop=True))
             else:
                 st.warning("'Order #' or 'Days' column not found in Orders sheet.")
     except Exception as e:
