@@ -1027,7 +1027,7 @@ if df is not None:
                         color='Unitary Profit (%) Numeric',
                         color_continuous_scale='Greens',
                     )
-                    fig_bar.update_traces(textposition='outside', textfont_size=18)
+                    fig_bar.update_traces(textposition='outside', textfont_size=20)
                     fig_bar.update_layout(
                         yaxis_tickformat='.2f',
                         xaxis_title='Order #',
