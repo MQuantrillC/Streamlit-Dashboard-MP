@@ -997,7 +997,7 @@ if df is not None:
                     top5_least = orders_df.sort_values('Days', ascending=True).head(5)[['Order #', 'Days']]
                     st.table(top5_least.reset_index(drop=True))
 
-                # Bar chart of top 5 orders with highest unitary profit (%)
+                # Bar chart of all orders by unitary profit (%)
                 if 'Unitary Profit (%)' in orders_df.columns:
                     # Clean and convert to float (remove % and handle commas)
                     orders_df['Unitary Profit (%) Numeric'] = (
@@ -1008,15 +1008,15 @@ if df is not None:
                         .str.extract(r'([\d\.]+)')[0]
                         .astype(float)
                     )
-                    top5_profit = orders_df.sort_values('Unitary Profit (%) Numeric', ascending=False).head(5)
+                    all_profit = orders_df.sort_values('Unitary Profit (%) Numeric', ascending=False)
                     import plotly.express as px
                     fig_bar = px.bar(
-                        top5_profit,
+                        all_profit,
                         x='Order #',
                         y='Unitary Profit (%) Numeric',
                         text='Unitary Profit (%)',
                         labels={'Unitary Profit (%) Numeric': 'Unitary Profit (%)'},
-                        title='Top 5 Orders with Highest Unitary Profit (%)',
+                        title='Orders by Unitary Profit (%)',
                         color='Unitary Profit (%) Numeric',
                         color_continuous_scale='Greens',
                     )
