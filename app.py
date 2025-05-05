@@ -1008,19 +1008,26 @@ if df is not None:
                         .str.extract(r'([\d\.]+)')[0]
                         .astype(float)
                     )
-                    all_profit = orders_df.sort_values('Unitary Profit (%) Numeric', ascending=False)
+                    all_profit = orders_df.sort_values('Unitary Profit (%) Numeric', ascending=False).reset_index(drop=True)
+                    # Prepare text labels: only top 3 and bottom 3 get labels
+                    text_labels = [''] * len(all_profit)
+                    for i in range(3):
+                        if i < len(all_profit):
+                            text_labels[i] = all_profit.loc[i, 'Unitary Profit (%)']
+                        if len(all_profit) - 1 - i >= 0:
+                            text_labels[len(all_profit) - 1 - i] = all_profit.loc[len(all_profit) - 1 - i, 'Unitary Profit (%)']
                     import plotly.express as px
                     fig_bar = px.bar(
                         all_profit,
                         x='Order #',
                         y='Unitary Profit (%) Numeric',
-                        text='Unitary Profit (%)',
+                        text=text_labels,
                         labels={'Unitary Profit (%) Numeric': 'Unitary Profit (%)'},
                         title='Orders by Unitary Profit (%)',
                         color='Unitary Profit (%) Numeric',
                         color_continuous_scale='Greens',
                     )
-                    fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+                    fig_bar.update_traces(textposition='outside', textfont_size=18)
                     fig_bar.update_layout(
                         yaxis_tickformat='.2f',
                         xaxis_title='Order #',
