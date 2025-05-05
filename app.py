@@ -981,15 +981,16 @@ if df is not None:
                 with col3:
                     st.metric("Std Dev (Days)", f"{std_days:.2f}")
 
-                # Top 5 orders with most days
-                st.markdown('#### Top 5 Orders with Most Days to Arrival')
-                top5_most = orders_df.sort_values('Days', ascending=False).head(5)[['Order #', 'Days']]
-                st.table(top5_most.reset_index(drop=True))
-
-                # Top 5 orders with least days
-                st.markdown('#### Top 5 Orders with Least Days to Arrival')
-                top5_least = orders_df.sort_values('Days', ascending=True).head(5)[['Order #', 'Days']]
-                st.table(top5_least.reset_index(drop=True))
+                # Top 5 orders with most/least days side by side
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown('#### Top 5 Orders with Most Days to Arrival')
+                    top5_most = orders_df.sort_values('Days', ascending=False).head(5)[['Order #', 'Days']]
+                    st.table(top5_most.reset_index(drop=True))
+                with col2:
+                    st.markdown('#### Top 5 Orders with Least Days to Arrival')
+                    top5_least = orders_df.sort_values('Days', ascending=True).head(5)[['Order #', 'Days']]
+                    st.table(top5_least.reset_index(drop=True))
             else:
                 st.warning("'Order #' or 'Days' column not found in Orders sheet.")
     except Exception as e:
