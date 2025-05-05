@@ -924,6 +924,82 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- Order Analytics Section ---
+    try:
+        client = connect_to_sheets()
+        if client:
+            orders_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Orders')
+            orders_data = orders_sheet.get_all_records()
+            orders_df = pd.DataFrame(orders_data)
+
+            st.markdown('## 📦 Order Analytics')
+
+            # Ensure columns are present and numeric
+            if 'Order #' in orders_df.columns and 'Days' in orders_df.columns:
+                orders_df = orders_df.copy()
+                orders_df = orders_df[orders_df['Order #'].astype(str).str.isnumeric() & orders_df['Days'].astype(str).str.isnumeric()]
+                orders_df['Order #'] = orders_df['Order #'].astype(int)
+                orders_df['Days'] = orders_df['Days'].astype(int)
+
+                # Scatter plot with trendline
+                import plotly.express as px
+                fig = px.scatter(
+                    orders_df,
+                    x='Order #',
+                    y='Days',
+                    title='Order Arrival Time by Order Number',
+                    labels={'Order #': 'Order #', 'Days': 'Days to Arrival'},
+                    trendline='ols',
+                    template='plotly_white',
+                )
+                fig.update_traces(marker=dict(size=10, color='#1f77b4', line=dict(width=1, color='DarkSlateGrey')))
+                fig.update_layout(
+                    title_font=dict(size=22),
+                    xaxis=dict(title='Order #', showgrid=True, gridcolor='rgba(128,128,128,0.2)'),
+                    yaxis=dict(title='Days to Arrival', showgrid=True, gridcolor='rgba(128,128,128,0.2)'),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(size=16)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Summary statistics
+                days_stats = orders_df['Days'].describe()
+                st.markdown('### Summary Statistics for Days to Arrival')
+                st.write({
+                    'Mean': f"{days_stats['mean']:.2f}",
+                    'Median': f"{orders_df['Days'].median():.2f}",
+                    'Min': int(days_stats['min']),
+                    'Max': int(days_stats['max']),
+                    'Std': f"{days_stats['std']:.2f}",
+                    'Count': int(days_stats['count'])
+                })
+
+                # Highlight outliers (orders with Days > Q3 + 1.5*IQR or < Q1 - 1.5*IQR)
+                Q1 = orders_df['Days'].quantile(0.25)
+                Q3 = orders_df['Days'].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                orders_df['Outlier'] = ((orders_df['Days'] < lower_bound) | (orders_df['Days'] > upper_bound))
+
+                # Table with outlier highlight
+                def highlight_outlier(val, is_outlier):
+                    if is_outlier:
+                        return 'background-color: #ff6666; color: white; font-weight: bold;'
+                    return ''
+                styled_orders = orders_df[['Order #', 'Days', 'Outlier']].style.apply(
+                    lambda row: [highlight_outlier(row['Days'], row['Outlier']), '', ''], axis=1, subset=['Days', 'Order #', 'Outlier']
+                )
+                st.markdown('### Order # and Days Table (Outliers Highlighted)')
+                st.dataframe(styled_orders, use_container_width=True)
+            else:
+                st.warning("'Order #' or 'Days' column not found in Orders sheet.")
+    except Exception as e:
+        st.warning(f"Could not load order analytics: {e}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # --- Enhanced Financial Results Statement from "Finances" Sheet ---
     try:
         client = connect_to_sheets()
