@@ -972,14 +972,19 @@ if df is not None:
                 max_days = int(days_stats['max'])
                 count_days = int(days_stats['count'])
 
+                # Days to Arrival - Key Metrics (add Min and Max)
                 st.markdown('### Days to Arrival - Key Metrics')
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
                     st.metric("Mean Days to Arrival", f"{mean_days:.2f}")
                 with col2:
                     st.metric("Median Days to Arrival", f"{median_days:.2f}")
                 with col3:
                     st.metric("Std Dev (Days)", f"{std_days:.2f}")
+                with col4:
+                    st.metric("Min Days", f"{min_days}")
+                with col5:
+                    st.metric("Max Days", f"{max_days}")
 
                 # Top 5 orders with most/least days side by side
                 col1, col2 = st.columns(2)
