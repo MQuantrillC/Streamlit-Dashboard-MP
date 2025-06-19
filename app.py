@@ -168,6 +168,36 @@ if df is not None:
             file_name=f"machu_pouches_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
+    
+    # PDF Export functionality
+    if st.sidebar.button("📄 Export as PDF"):
+        # JavaScript to hide sidebar and trigger print dialog
+        st.markdown("""
+        <script>
+        function exportToPDF() {
+            // Hide sidebar
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.style.display = 'none';
+            }
+            
+            // Trigger print dialog
+            window.print();
+            
+            // Show sidebar again after print dialog
+            setTimeout(() => {
+                if (sidebar) {
+                    sidebar.style.display = 'block';
+                }
+            }, 1000);
+        }
+        
+        // Auto-trigger the export function
+        exportToPDF();
+        </script>
+        """, unsafe_allow_html=True)
+        
+        st.sidebar.success("📄 Print dialog opened! Select 'Save as PDF' to download.")
 
     # --- Chronological Time Frame Filter ---
     time_frame = st.sidebar.radio(
@@ -704,9 +734,9 @@ if df is not None:
         with col1:
             most_frequent = customer_metrics.loc[customer_metrics['Total Orders'].idxmax()]
             st.markdown(f"""
-            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa; height: 120px; display: flex; flex-direction: column; justify-content: space-between;">
                 <h4 style="margin: 0; color: #1f77b4;">🔄 Most Frequent Customer</h4>
-                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{most_frequent['Display Name']}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold; color: #1f77b4;">{most_frequent['Display Name']}</p>
                 <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{most_frequent['Total Orders']} orders</p>
             </div>
             """, unsafe_allow_html=True)
@@ -715,9 +745,9 @@ if df is not None:
         with col2:
             latest_customer = customer_metrics.loc[customer_metrics['Client ID'].idxmax()]
             st.markdown(f"""
-            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa; height: 120px; display: flex; flex-direction: column; justify-content: space-between;">
                 <h4 style="margin: 0; color: #1f77b4;">🆕 Latest Customer</h4>
-                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{latest_customer['Display Name']}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold; color: #1f77b4;">{latest_customer['Display Name']}</p>
                 <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{latest_customer['Days Since Last Order']} days ago</p>
             </div>
             """, unsafe_allow_html=True)
@@ -726,9 +756,9 @@ if df is not None:
         with col3:
             highest_spender = customer_metrics.loc[customer_metrics['Total Spent'].idxmax()]
             st.markdown(f"""
-            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa; height: 120px; display: flex; flex-direction: column; justify-content: space-between;">
                 <h4 style="margin: 0; color: #1f77b4;">💰 Top Spender</h4>
-                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{highest_spender['Display Name']}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold; color: #1f77b4;">{highest_spender['Display Name']}</p>
                 <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">S/. {highest_spender['Total Spent']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -737,9 +767,9 @@ if df is not None:
         with col4:
             most_recent = customer_metrics.loc[customer_metrics['Days Since Last Order'].idxmin()]
             st.markdown(f"""
-            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa; height: 120px; display: flex; flex-direction: column; justify-content: space-between;">
                 <h4 style="margin: 0; color: #1f77b4;">⏰ Most Recent Order</h4>
-                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{most_recent['Display Name']}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold; color: #1f77b4;">{most_recent['Display Name']}</p>
                 <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{most_recent['Days Since Last Order']} days ago</p>
             </div>
             """, unsafe_allow_html=True)
