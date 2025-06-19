@@ -703,46 +703,58 @@ if df is not None:
         # Most Frequent Customer
         with col1:
             most_frequent = customer_metrics.loc[customer_metrics['Total Orders'].idxmax()]
-            st.metric(
-                "🔄 Most Frequent Customer",
-                f"{most_frequent['Display Name']}",
-                delta=f"{most_frequent['Total Orders']} orders"
-            )
+            st.markdown(f"""
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+                <h4 style="margin: 0; color: #1f77b4;">🔄 Most Frequent Customer</h4>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{most_frequent['Display Name']}</p>
+                <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{most_frequent['Total Orders']} orders</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Latest Customer
+        # Latest Customer (highest Client ID)
         with col2:
-            latest_customer = customer_metrics.loc[customer_metrics['First Order Date'].idxmax()]
-            st.metric(
-                "🆕 Latest Customer",
-                f"{latest_customer['Display Name']}",
-                delta=f"{latest_customer['Days Since Last Order']} days ago"
-            )
+            latest_customer = customer_metrics.loc[customer_metrics['Client ID'].idxmax()]
+            st.markdown(f"""
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+                <h4 style="margin: 0; color: #1f77b4;">🆕 Latest Customer</h4>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{latest_customer['Display Name']}</p>
+                <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{latest_customer['Days Since Last Order']} days ago</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Highest Spending Customer
         with col3:
             highest_spender = customer_metrics.loc[customer_metrics['Total Spent'].idxmax()]
-            st.metric(
-                "💰 Top Spender",
-                f"{highest_spender['Display Name']}",
-                delta=f"S/. {highest_spender['Total Spent']:,.2f}"
-            )
+            st.markdown(f"""
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+                <h4 style="margin: 0; color: #1f77b4;">💰 Top Spender</h4>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{highest_spender['Display Name']}</p>
+                <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">S/. {highest_spender['Total Spent']:,.2f}</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Most Recent Activity
         with col4:
             most_recent = customer_metrics.loc[customer_metrics['Days Since Last Order'].idxmin()]
-            st.metric(
-                "⏰ Most Recent Order",
-                f"{most_recent['Display Name']}",
-                delta=f"{most_recent['Days Since Last Order']} days ago"
-            )
+            st.markdown(f"""
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+                <h4 style="margin: 0; color: #1f77b4;">⏰ Most Recent Order</h4>
+                <p style="margin: 0.5rem 0 0 0; font-size: 14px; font-weight: bold;">{most_recent['Display Name']}</p>
+                <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: #666;">{most_recent['Days Since Last Order']} days ago</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Top Customers Table
         st.markdown("### 📊 Top 10 Customers by Orders")
         top_by_orders = customer_metrics.nlargest(10, 'Total Orders')[['Display Name', 'Total Orders', 'Total Spent']].copy()
+        # Calculate average per order
+        top_by_orders['Avg per Order'] = top_by_orders['Total Spent'] / top_by_orders['Total Orders']
+        # Format the columns
         top_by_orders['Total Spent'] = top_by_orders['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
-        top_by_orders.columns = ['Customer', 'Total Orders', 'Total Spent']
+        top_by_orders['Avg per Order'] = top_by_orders['Avg per Order'].apply(lambda x: f"S/. {x:,.2f}")
+        top_by_orders.columns = ['Customer', 'Total Orders', 'Total Spent', 'Avg per Order']
         top_by_orders.index = range(1, len(top_by_orders) + 1)
         st.dataframe(top_by_orders, use_container_width=True)
         
