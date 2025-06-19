@@ -171,30 +171,15 @@ if df is not None:
     
     # PDF Export functionality
     if st.sidebar.button("📄 Export as PDF"):
-        # Add CSS for print media and JavaScript for PDF export
-        st.components.v1.html("""
-        <style>
-        @media print {
-            [data-testid="stSidebar"] {
-                display: none !important;
-            }
-            [data-testid="stHeader"] {
-                display: none !important;
-            }
-            .main .block-container {
-                padding-top: 0 !important;
-                max-width: 100% !important;
-            }
-        }
-        </style>
-        <script>
-        setTimeout(() => {
-            window.print();
-        }, 500);
-        </script>
-        """, height=0)
+        st.sidebar.info("""
+        📄 **To export as PDF:**
+        1. Click the **⋮** menu (3 dots) in the top-right corner
+        2. Select **"Print"** 
+        3. In the print dialog, choose **"Save as PDF"**
+        4. Click **"Save"**
         
-        st.sidebar.info("📄 Print dialog will open automatically. Select 'Save as PDF' in the print dialog.")
+        This will give you a clean PDF without the sidebar!
+        """)
 
     # --- Chronological Time Frame Filter ---
     time_frame = st.sidebar.radio(
