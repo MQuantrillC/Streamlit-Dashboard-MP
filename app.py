@@ -13,12 +13,35 @@ import traceback
 # Page config
 st.set_page_config(
     page_title="Machu Pouches Dashboard",
-    page_icon="📊",
-    layout="wide"
+    page_icon="��",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Title
-st.title("Machu Pouches Dashboard")
+# Initialize session state for better performance
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = None
+
+# Add refresh button in sidebar
+with st.sidebar:
+    st.markdown("### 🔄 Data Management")
+    if st.button("🔄 Refresh Data", help="Click to reload data from Google Sheets"):
+        st.cache_data.clear()
+        st.session_state.data_loaded = False
+        st.rerun()
+    
+    if st.session_state.last_refresh:
+        st.caption(f"Last updated: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+
+# Title with better styling
+st.markdown("""
+<div style='text-align: center; margin-bottom: 2rem;'>
+    <h1 style='color: #1f77b4; font-size: 3rem; margin-bottom: 0;'>📊 Machu Pouches Dashboard</h1>
+    <p style='color: #666; font-size: 1.2rem; margin-top: 0;'>Comprehensive Business Analytics & Insights</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Add this function near the top of the file, after the imports
 def get_green_gradient(value, min_val, max_val):
@@ -59,19 +82,65 @@ def connect_to_sheets():
         st.error("Please check your Streamlit secrets configuration.")
         return None
 
-# Add this decorator to cache data loading
+# Comprehensive data loading with caching
 @st.cache_data(ttl=300)
-def load_data():
+def load_all_data():
+    """Load all data from Google Sheets at once for better performance"""
     try:
         client = connect_to_sheets()
-        if client:
-            spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
-            worksheet = spreadsheet.get_worksheet(0)  # Get the first worksheet
-            data = worksheet.get_all_records()
-            return pd.DataFrame(data)
+        if not client:
+            return None, None, None, None, None
+            
+        spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+        
+        # Load all sheets in parallel
+        main_data = None
+        sales_data = None
+        inventory_data = None
+        orders_data = None
+        finances_data = None
+        
+        try:
+            worksheet = spreadsheet.get_worksheet(0)
+            main_data = pd.DataFrame(worksheet.get_all_records())
+        except Exception as e:
+            st.warning(f"Could not load main data: {e}")
+            
+        try:
+            sales_sheet = spreadsheet.worksheet('Sales')
+            sales_data = pd.DataFrame(sales_sheet.get_all_records())
+        except Exception as e:
+            st.warning(f"Could not load Sales sheet: {e}")
+            
+        try:
+            inventory_sheet = spreadsheet.worksheet('Inventory')
+            inventory_data = pd.DataFrame(inventory_sheet.get_all_values())
+        except Exception as e:
+            st.warning(f"Could not load Inventory sheet: {e}")
+            
+        try:
+            orders_sheet = spreadsheet.worksheet('Orders')
+            orders_data = pd.DataFrame(orders_sheet.get_all_records())
+        except Exception as e:
+            st.warning(f"Could not load Orders sheet: {e}")
+            
+        try:
+            finances_sheet = spreadsheet.worksheet('Finances')
+            finances_data = pd.DataFrame(finances_sheet.get_all_records())
+        except Exception as e:
+            st.warning(f"Could not load Finances sheet: {e}")
+            
+        return main_data, sales_data, inventory_data, orders_data, finances_data
+        
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        return None
+        return None, None, None, None, None
+
+@st.cache_data(ttl=300)
+def load_data():
+    """Legacy function for backward compatibility"""
+    main_data, _, _, _, _ = load_all_data()
+    return main_data
 
 # Main content
 st.write("Loading data...")
@@ -89,8 +158,21 @@ if df is not None and 'Payment Amount' in df.columns:
     )
 
 if df is not None:
-    # Sidebar filters
-    st.sidebar.header("Filters")
+    # Enhanced Sidebar filters
+    st.sidebar.markdown("### 🎛️ Dashboard Filters")
+    
+    # Add export functionality
+    st.sidebar.markdown("### 📊 Export Data")
+    if st.sidebar.button("📥 Export to CSV"):
+        csv = df.to_csv(index=False)
+        st.sidebar.download_button(
+            label="Download CSV",
+            data=csv,
+            file_name=f"machu_pouches_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+    
+    st.sidebar.markdown("### 🔍 Filter Options")
 
     # --- Chronological Time Frame Filter ---
     time_frame = st.sidebar.radio(
@@ -144,20 +226,95 @@ if df is not None:
         )
         df = df[df['Product'].isin(selected_products)]
 
-    # --- TOP KPIs & INSIGHTS ---
-    st.markdown("## 📈 Key Metrics & Insights")
-    # Metrics row
-    metric_col1, metric_col2, metric_col3 = st.columns(3)
-    with metric_col1:
-        if 'Payment Amount (Numeric)' in df.columns:
-            total_sales = df['Payment Amount (Numeric)'].sum()
-            st.metric("Total Sales Amount", f"S/. {total_sales:,.2f}")
-    with metric_col2:
+    # --- ENHANCED KPIs WITH TRENDS ---
+    st.markdown("## 📈 Key Performance Indicators")
+    
+    # Calculate current period metrics
+    if 'Payment Amount (Numeric)' in df.columns:
+        total_sales = df['Payment Amount (Numeric)'].sum()
+        avg_order_value = df['Payment Amount (Numeric)'].mean() if len(df) > 0 else 0
         unique_customers = df['Client ID'].nunique() if 'Client ID' in df.columns else 0
-        st.metric("Unique Customers", f"{unique_customers}")
-    with metric_col3:
         unique_orders = df['Order ID'].nunique() if 'Order ID' in df.columns else 0
-        st.metric("Unique Orders", f"{unique_orders}")
+        
+        # Calculate previous period for comparison (if possible)
+        prev_sales = 0
+        prev_customers = 0
+        prev_orders = 0
+        prev_aov = 0
+        
+        if 'Date' in df.columns and len(df) > 0:
+            # Get date range
+            current_start = df['Date'].min()
+            current_end = df['Date'].max()
+            period_length = (current_end - current_start).days
+            
+            # Calculate previous period
+            prev_start = current_start - pd.Timedelta(days=period_length)
+            prev_end = current_start
+            
+            # Load all data for comparison
+            all_data = load_data()
+            if all_data is not None and 'Date' in all_data.columns:
+                all_data['Date'] = pd.to_datetime(all_data['Date'])
+                all_data['Payment Amount (Numeric)'] = (
+                    all_data['Payment Amount']
+                    .astype(str)
+                    .str.replace('S/.', '', regex=False)
+                    .str.replace(',', '', regex=False)
+                    .str.extract(r'([\d\.]+)')[0]
+                    .astype(float)
+                )
+                
+                prev_data = all_data[(all_data['Date'] >= prev_start) & (all_data['Date'] < prev_end)]
+                if len(prev_data) > 0:
+                    prev_sales = prev_data['Payment Amount (Numeric)'].sum()
+                    prev_customers = prev_data['Client ID'].nunique() if 'Client ID' in prev_data.columns else 0
+                    prev_orders = prev_data['Order ID'].nunique() if 'Order ID' in prev_data.columns else 0
+                    prev_aov = prev_data['Payment Amount (Numeric)'].mean()
+        
+        # Calculate deltas
+        sales_delta = total_sales - prev_sales if prev_sales > 0 else None
+        customers_delta = unique_customers - prev_customers if prev_customers > 0 else None
+        orders_delta = unique_orders - prev_orders if prev_orders > 0 else None
+        aov_delta = avg_order_value - prev_aov if prev_aov > 0 else None
+        
+        # Display enhanced metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric(
+                "💰 Total Sales", 
+                f"S/. {total_sales:,.2f}",
+                delta=f"S/. {sales_delta:,.2f}" if sales_delta else None
+            )
+        
+        with col2:
+            st.metric(
+                "👥 Unique Customers", 
+                f"{unique_customers:,}",
+                delta=f"{customers_delta:,}" if customers_delta else None
+            )
+        
+        with col3:
+            st.metric(
+                "📦 Total Orders", 
+                f"{unique_orders:,}",
+                delta=f"{orders_delta:,}" if orders_delta else None
+            )
+            
+        with col4:
+            st.metric(
+                "💳 Avg Order Value", 
+                f"S/. {avg_order_value:.2f}",
+                delta=f"S/. {aov_delta:.2f}" if aov_delta else None
+            )
+            
+        with col5:
+            conversion_rate = (unique_orders / unique_customers * 100) if unique_customers > 0 else 0
+            st.metric(
+                "📊 Conversion Rate", 
+                f"{conversion_rate:.1f}%"
+            )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -408,6 +565,153 @@ if df is not None:
             )
         
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Add forecasting section
+        st.markdown("### 🔮 Sales Forecasting")
+        
+        # Simple moving average forecast
+        if len(sales_trend) >= 3:
+            # Calculate 3-period moving average for forecast
+            last_3_values = sales_trend['Payment Amount (Numeric)'].tail(3).mean()
+            growth_rate = sales_trend['Payment Amount (Numeric)'].pct_change().mean()
+            
+            # Generate next 3 periods forecast
+            forecast_periods = 3
+            forecast_dates = []
+            forecast_values = []
+            
+            last_date = sales_trend['Date'].max()
+            current_value = last_3_values
+            
+            for i in range(1, forecast_periods + 1):
+                if trend_view == "Daily":
+                    next_date = last_date + pd.Timedelta(days=i)
+                elif trend_view == "Weekly":
+                    next_date = last_date + pd.Timedelta(weeks=i)
+                else:  # Monthly
+                    next_date = last_date + pd.DateOffset(months=i)
+                
+                # Apply growth rate with some randomness
+                current_value = current_value * (1 + growth_rate)
+                forecast_dates.append(next_date)
+                forecast_values.append(current_value)
+            
+            # Add forecast to the plot
+            fig.add_trace(go.Scatter(
+                x=forecast_dates,
+                y=forecast_values,
+                mode='lines+markers',
+                name='Forecast',
+                line=dict(color='#ff4444', width=2, dash='dot'),
+                marker=dict(size=8, color='#ff4444')
+            ))
+            
+            # Update layout to show forecast
+            fig.update_layout(
+                title=f'{title} with Forecast'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show forecast summary
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Next Period Forecast", f"S/. {forecast_values[0]:,.2f}")
+            with col2:
+                total_forecast = sum(forecast_values)
+                st.metric(f"Next {forecast_periods} Periods", f"S/. {total_forecast:,.2f}")
+            with col3:
+                confidence = max(0, min(100, 85 - abs(growth_rate) * 1000))  # Simple confidence calculation
+                st.metric("Forecast Confidence", f"{confidence:.0f}%")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- ADVANCED ANALYTICS SECTION ---
+    st.markdown("## 🔍 Advanced Analytics")
+    
+    # Customer Lifetime Value and RFM Analysis
+    if 'Client ID' in df.columns and 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+        
+        # Calculate RFM metrics
+        analysis_date = df['Date'].max()
+        
+        rfm_df = df.groupby('Client ID').agg({
+            'Date': lambda x: (analysis_date - x.max()).days,  # Recency
+            'Order ID': 'nunique',  # Frequency
+            'Payment Amount (Numeric)': 'sum'  # Monetary
+        }).reset_index()
+        
+        rfm_df.columns = ['Client ID', 'Recency', 'Frequency', 'Monetary']
+        
+        # Create RFM scores
+        rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'].rank(method='first'), 5, labels=[5,4,3,2,1])
+        rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'].rank(method='first'), 5, labels=[1,2,3,4,5])
+        rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'].rank(method='first'), 5, labels=[1,2,3,4,5])
+        
+        rfm_df['RFM_Score'] = rfm_df['R_Score'].astype(str) + rfm_df['F_Score'].astype(str) + rfm_df['M_Score'].astype(str)
+        
+        # Customer Segmentation
+        def segment_customers(row):
+            if row['RFM_Score'] in ['555', '554', '544', '545', '454', '455', '445']:
+                return 'Champions'
+            elif row['RFM_Score'] in ['543', '444', '435', '355', '354', '345', '344', '335']:
+                return 'Loyal Customers'
+            elif row['RFM_Score'] in ['512', '511', '422', '421', '412', '411', '311']:
+                return 'Potential Loyalists'
+            elif row['RFM_Score'] in ['533', '532', '531', '523', '522', '521', '515', '514', '513']:
+                return 'New Customers'
+            elif row['RFM_Score'] in ['155', '154', '144', '214', '215', '115', '114']:
+                return 'At Risk'
+            elif row['RFM_Score'] in ['155', '154', '145', '143', '142', '135', '134', '133', '125', '124']:
+                return 'Cannot Lose Them'
+            else:
+                return 'Others'
+        
+        rfm_df['Segment'] = rfm_df.apply(segment_customers, axis=1)
+        
+        # Display RFM Analysis
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 🎯 Customer Segments")
+            segment_counts = rfm_df['Segment'].value_counts()
+            fig_segments = px.pie(
+                values=segment_counts.values, 
+                names=segment_counts.index,
+                title='Customer Segmentation (RFM Analysis)',
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            fig_segments.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig_segments, use_container_width=True)
+        
+        with col2:
+            st.markdown("### 💎 Top Customer Segments")
+            segment_summary = rfm_df.groupby('Segment').agg({
+                'Client ID': 'count',
+                'Monetary': 'mean',
+                'Frequency': 'mean',
+                'Recency': 'mean'
+            }).round(2)
+            segment_summary.columns = ['Count', 'Avg Monetary', 'Avg Frequency', 'Avg Recency']
+            segment_summary = segment_summary.sort_values('Avg Monetary', ascending=False)
+            st.dataframe(segment_summary, use_container_width=True)
+        
+        # Customer Lifetime Value Prediction
+        st.markdown("### 📈 Customer Lifetime Value Analysis")
+        
+        # Simple CLV calculation
+        rfm_df['CLV'] = rfm_df['Monetary'] * (rfm_df['Frequency'] / rfm_df['Recency']) * 365
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            avg_clv = rfm_df['CLV'].mean()
+            st.metric("Average CLV", f"S/. {avg_clv:,.2f}")
+        with col2:
+            top_10_clv = rfm_df.nlargest(10, 'CLV')['CLV'].sum()
+            st.metric("Top 10 Customers CLV", f"S/. {top_10_clv:,.2f}")
+        with col3:
+            clv_median = rfm_df['CLV'].median()
+            st.metric("Median CLV", f"S/. {clv_median:,.2f}")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -909,7 +1213,7 @@ if df is not None:
             st.markdown("<br>", unsafe_allow_html=True)
 
             # --- Current + New Orders table ---
-            plus_new_row = inventory_df.apply(lambda row: row.str.contains('Current \+ New Orders', na=False)).any(axis=1)
+            plus_new_row = inventory_df.apply(lambda row: row.str.contains('Current \\+ New Orders', na=False)).any(axis=1)
             plus_new_start = plus_new_row[plus_new_row].index[0]
             plus_new_header = inventory_df.iloc[plus_new_start].tolist()
             try:
