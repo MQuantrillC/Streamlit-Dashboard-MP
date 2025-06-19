@@ -392,53 +392,79 @@ if df is not None:
 
         # --- Sales by Channel ---
         try:
-            client = connect_to_sheets()
-            if client:
-                # Load data from the 'Sales' sheet (separate from the main data)
-                sales_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Sales')
-                sales_data = sales_sheet.get_all_records()
-                sales_df = pd.DataFrame(sales_data)
+            # Check if Channel column exists in the main data first
+            if 'Channel' in df.columns:
+                channel_sales = df.groupby('Channel')['Payment Amount (Numeric)'].sum().reset_index()
+                # Filter out zero sales
+                channel_sales = channel_sales[channel_sales['Payment Amount (Numeric)'] > 0]
                 
-                # Check if Channel column exists and process the data
-                if 'Channel' in sales_df.columns and 'Payment Amount' in sales_df.columns:
-                    # Clean and convert Payment Amount to numeric
-                    sales_df['Payment Amount (Numeric)'] = (
-                        sales_df['Payment Amount']
-                        .astype(str)
-                        .str.replace('S/.', '', regex=False)
-                        .str.replace(',', '', regex=False)
-                        .str.extract(r'([\d\.]+)')[0]
-                        .astype(float)
+                if not channel_sales.empty:
+                    # Calculate percent for each slice
+                    channel_sales['percent'] = channel_sales['Payment Amount (Numeric)'] / channel_sales['Payment Amount (Numeric)'].sum() * 100
+                    # Set textposition: inside for >=3%, outside for <3%
+                    textpositions = ['inside' if p >= 3 else 'outside' for p in channel_sales['percent']]
+                    
+                    fig_channel = px.pie(channel_sales, names='Channel', values='Payment Amount (Numeric)',
+                                       title='Sales by Channel', hole=0.3, width=600, height=600)
+                    fig_channel.update_traces(textfont_size=22, textinfo='percent', textposition=textpositions, insidetextorientation='radial')
+                    fig_channel.update_layout(
+                        legend=dict(
+                            font=dict(size=18, color='white'),
+                            bgcolor='rgba(0,0,0,0)',
+                        ),
+                        title_font=dict(size=22),
                     )
-                    
-                    # Group by Channel and calculate total sales
-                    channel_sales = sales_df.groupby('Channel')['Payment Amount (Numeric)'].sum().reset_index()
-                    # Filter out zero sales
-                    channel_sales = channel_sales[channel_sales['Payment Amount (Numeric)'] > 0]
-                    
-                    if not channel_sales.empty:
-                        # Calculate percent for each slice
-                        channel_sales['percent'] = channel_sales['Payment Amount (Numeric)'] / channel_sales['Payment Amount (Numeric)'].sum() * 100
-                        # Set textposition: inside for >=3%, outside for <3%
-                        textpositions = ['inside' if p >= 3 else 'outside' for p in channel_sales['percent']]
-                        
-                        fig_channel = px.pie(channel_sales, names='Channel', values='Payment Amount (Numeric)',
-                                           title='Sales by Channel', hole=0.3, width=600, height=600)
-                        fig_channel.update_traces(textfont_size=22, textinfo='percent', textposition=textpositions, insidetextorientation='radial')
-                        fig_channel.update_layout(
-                            legend=dict(
-                                font=dict(size=18, color='white'),
-                                bgcolor='rgba(0,0,0,0)',
-                            ),
-                            title_font=dict(size=22),
-                        )
-                        st.plotly_chart(fig_channel, use_container_width=True)
-                    else:
-                        st.warning("No channel sales data available for the selected time period.")
+                    st.plotly_chart(fig_channel, use_container_width=True)
                 else:
-                    st.warning("Channel column not found in Sales sheet.")
+                    st.info("No channel sales data available for the selected time period.")
+            else:
+                # Try to load from separate Sales sheet as fallback
+                try:
+                    client = connect_to_sheets()
+                    if client:
+                        sales_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Sales')
+                        sales_data = sales_sheet.get_all_records()
+                        sales_df = pd.DataFrame(sales_data)
+                        
+                        if 'Channel' in sales_df.columns and 'Payment Amount' in sales_df.columns:
+                            # Process the data similar to above
+                            sales_df['Payment Amount (Numeric)'] = (
+                                sales_df['Payment Amount']
+                                .astype(str)
+                                .str.replace('S/.', '', regex=False)
+                                .str.replace(',', '', regex=False)
+                                .str.extract(r'([\d\.]+)')[0]
+                                .astype(float)
+                            )
+                            
+                            channel_sales = sales_df.groupby('Channel')['Payment Amount (Numeric)'].sum().reset_index()
+                            channel_sales = channel_sales[channel_sales['Payment Amount (Numeric)'] > 0]
+                            
+                            if not channel_sales.empty:
+                                channel_sales['percent'] = channel_sales['Payment Amount (Numeric)'] / channel_sales['Payment Amount (Numeric)'].sum() * 100
+                                textpositions = ['inside' if p >= 3 else 'outside' for p in channel_sales['percent']]
+                                
+                                fig_channel = px.pie(channel_sales, names='Channel', values='Payment Amount (Numeric)',
+                                                   title='Sales by Channel', hole=0.3, width=600, height=600)
+                                fig_channel.update_traces(textfont_size=22, textinfo='percent', textposition=textpositions, insidetextorientation='radial')
+                                fig_channel.update_layout(
+                                    legend=dict(
+                                        font=dict(size=18, color='white'),
+                                        bgcolor='rgba(0,0,0,0)',
+                                    ),
+                                    title_font=dict(size=22),
+                                )
+                                st.plotly_chart(fig_channel, use_container_width=True)
+                            else:
+                                st.info("No channel sales data available.")
+                        else:
+                            st.info("Add a 'Channel' column to your data to see Sales by Channel analysis.")
+                    else:
+                        st.info("Add a 'Channel' column to your data to see Sales by Channel analysis.")
+                except:
+                    st.info("Add a 'Channel' column to your data to see Sales by Channel analysis.")
         except Exception as e:
-            st.warning(f"Could not load Sales by Channel data: {e}")
+            st.info("Add a 'Channel' column to your data to see Sales by Channel analysis.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -649,11 +675,11 @@ if df is not None:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- Customer Segments ---
-    if 'Client ID' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+    if 'Client ID' in df.columns and 'Buyer' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         st.markdown("## 🎯 Customer Segments")
         
-        # Calculate customer metrics
-        customer_metrics = df.groupby('Client ID').agg({
+        # Calculate customer metrics with Buyer names
+        customer_metrics = df.groupby(['Client ID', 'Buyer']).agg({
             'Order ID': 'nunique',
             'Payment Amount (Numeric)': 'sum',
             'Date': ['min', 'max'],
@@ -661,7 +687,10 @@ if df is not None:
         }).reset_index()
         
         # Flatten column names
-        customer_metrics.columns = ['Client ID', 'Total Orders', 'Total Spent', 'First Order Date', 'Last Order Date', 'Total Quantity']
+        customer_metrics.columns = ['Client ID', 'Buyer', 'Total Orders', 'Total Spent', 'First Order Date', 'Last Order Date', 'Total Quantity']
+        
+        # Create combined display name
+        customer_metrics['Display Name'] = customer_metrics['Buyer'] + ' - ' + customer_metrics['Client ID']
         
         # Calculate days since last order
         customer_metrics['Days Since Last Order'] = (df['Date'].max() - customer_metrics['Last Order Date']).dt.days
@@ -676,7 +705,7 @@ if df is not None:
             most_frequent = customer_metrics.loc[customer_metrics['Total Orders'].idxmax()]
             st.metric(
                 "🔄 Most Frequent Customer",
-                f"{most_frequent['Client ID']}",
+                f"{most_frequent['Display Name']}",
                 delta=f"{most_frequent['Total Orders']} orders"
             )
         
@@ -685,7 +714,7 @@ if df is not None:
             latest_customer = customer_metrics.loc[customer_metrics['First Order Date'].idxmax()]
             st.metric(
                 "🆕 Latest Customer",
-                f"{latest_customer['Client ID']}",
+                f"{latest_customer['Display Name']}",
                 delta=f"{latest_customer['Days Since Last Order']} days ago"
             )
         
@@ -694,7 +723,7 @@ if df is not None:
             highest_spender = customer_metrics.loc[customer_metrics['Total Spent'].idxmax()]
             st.metric(
                 "💰 Top Spender",
-                f"{highest_spender['Client ID']}",
+                f"{highest_spender['Display Name']}",
                 delta=f"S/. {highest_spender['Total Spent']:,.2f}"
             )
         
@@ -703,28 +732,19 @@ if df is not None:
             most_recent = customer_metrics.loc[customer_metrics['Days Since Last Order'].idxmin()]
             st.metric(
                 "⏰ Most Recent Order",
-                f"{most_recent['Client ID']}",
+                f"{most_recent['Display Name']}",
                 delta=f"{most_recent['Days Since Last Order']} days ago"
             )
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Top Customers Tables
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 📊 Top 10 Customers by Orders")
-            top_by_orders = customer_metrics.nlargest(10, 'Total Orders')[['Client ID', 'Total Orders', 'Total Spent']].copy()
-            top_by_orders['Total Spent'] = top_by_orders['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
-            top_by_orders.index = range(1, len(top_by_orders) + 1)
-            st.dataframe(top_by_orders, use_container_width=True)
-        
-        with col2:
-            st.markdown("### 💎 Top 10 Customers by Spending")
-            top_by_spending = customer_metrics.nlargest(10, 'Total Spent')[['Client ID', 'Total Spent', 'Total Orders']].copy()
-            top_by_spending['Total Spent'] = top_by_spending['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
-            top_by_spending.index = range(1, len(top_by_spending) + 1)
-            st.dataframe(top_by_spending, use_container_width=True)
+        # Top Customers Table
+        st.markdown("### 📊 Top 10 Customers by Orders")
+        top_by_orders = customer_metrics.nlargest(10, 'Total Orders')[['Display Name', 'Total Orders', 'Total Spent']].copy()
+        top_by_orders['Total Spent'] = top_by_orders['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
+        top_by_orders.columns = ['Customer', 'Total Orders', 'Total Spent']
+        top_by_orders.index = range(1, len(top_by_orders) + 1)
+        st.dataframe(top_by_orders, use_container_width=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -732,85 +752,48 @@ if df is not None:
         if 'Product' in df.columns:
             st.markdown("### 🛒 Top Customers by Product")
             
-            # Get unique products for analysis
-            products = df['Product'].unique()
+            # Create tabs for different flavors
+            product_tabs = st.tabs([
+                "🧊 Cool Mint", "🍃 Apple Mint", "❄️ Cool Frost", "🌿 Spearmint", 
+                "🌱 Fresh Mint", "🍋 Citrus", "🥭 Exotic Mango", "🧊 Deep Freeze", "🫐 Cool Blueberry"
+            ])
             
-            # Create tabs for different product categories
-            product_tabs = st.tabs(["🌿 All Products", "🧊 Cool Mint", "🍃 Other Flavors"])
+            # Define the flavor analysis function
+            def analyze_flavor(flavor_name, tab_index, mg_levels):
+                with product_tabs[tab_index]:
+                    st.markdown(f"#### {flavor_name} Product Analysis")
+                    
+                    # Create columns for different mg variants
+                    cols = st.columns(len(mg_levels))
+                    
+                    for i, mg in enumerate(mg_levels):
+                        flavor_data = df[df['Product'].str.contains(f'{flavor_name}.*{mg}', na=False)]
+                        if not flavor_data.empty:
+                            with cols[i]:
+                                st.markdown(f"**{flavor_name} {mg} Top Customers**")
+                                # Group by Buyer instead of Client ID
+                                flavor_customers = flavor_data.groupby('Buyer')['Amount'].sum().sort_values(ascending=False).head(5)
+                                flavor_df = pd.DataFrame({
+                                    'Buyer': flavor_customers.index,
+                                    'Quantity': flavor_customers.values
+                                })
+                                flavor_df.index = range(1, len(flavor_df) + 1)
+                                st.dataframe(flavor_df, use_container_width=True)
+                        else:
+                            with cols[i]:
+                                st.markdown(f"**{flavor_name} {mg}**")
+                                st.info("No data available")
             
-            with product_tabs[0]:
-                # Show top customers for all products combined (already shown above)
-                st.markdown("**Overall top customers are displayed in the tables above.**")
-            
-            with product_tabs[1]:
-                # Cool Mint specific analysis
-                cool_mint_products = [p for p in products if 'Cool Mint' in p]
-                if cool_mint_products:
-                    st.markdown("#### Cool Mint Product Analysis")
-                    
-                    # Create columns for different Cool Mint variants
-                    cool_mint_3mg = df[df['Product'].str.contains('Cool Mint.*3mg', na=False)]
-                    cool_mint_6mg = df[df['Product'].str.contains('Cool Mint.*6mg', na=False)]
-                    cool_mint_9mg = df[df['Product'].str.contains('Cool Mint.*9mg', na=False)]
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        if not cool_mint_3mg.empty:
-                            st.markdown("**Cool Mint 3mg Top Customers**")
-                            cm_3mg_customers = cool_mint_3mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
-                            cm_3mg_df = pd.DataFrame({
-                                'Client ID': cm_3mg_customers.index,
-                                'Quantity': cm_3mg_customers.values
-                            })
-                            cm_3mg_df.index = range(1, len(cm_3mg_df) + 1)
-                            st.dataframe(cm_3mg_df, use_container_width=True)
-                    
-                    with col2:
-                        if not cool_mint_6mg.empty:
-                            st.markdown("**Cool Mint 6mg Top Customers**")
-                            cm_6mg_customers = cool_mint_6mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
-                            cm_6mg_df = pd.DataFrame({
-                                'Client ID': cm_6mg_customers.index,
-                                'Quantity': cm_6mg_customers.values
-                            })
-                            cm_6mg_df.index = range(1, len(cm_6mg_df) + 1)
-                            st.dataframe(cm_6mg_df, use_container_width=True)
-                    
-                    with col3:
-                        if not cool_mint_9mg.empty:
-                            st.markdown("**Cool Mint 9mg Top Customers**")
-                            cm_9mg_customers = cool_mint_9mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
-                            cm_9mg_df = pd.DataFrame({
-                                'Client ID': cm_9mg_customers.index,
-                                'Quantity': cm_9mg_customers.values
-                            })
-                            cm_9mg_df.index = range(1, len(cm_9mg_df) + 1)
-                            st.dataframe(cm_9mg_df, use_container_width=True)
-                else:
-                    st.info("No Cool Mint products found in the selected time period.")
-            
-            with product_tabs[2]:
-                # Other flavors analysis
-                other_flavors = ['Apple Mint', 'Spearmint', 'Cool Frost', 'Fresh Mint', 'Citrus', 'Exotic Mango']
-                
-                # Create a grid for other flavors
-                flavor_cols = st.columns(3)
-                col_idx = 0
-                
-                for flavor in other_flavors:
-                    flavor_data = df[df['Product'].str.contains(flavor, na=False)]
-                    if not flavor_data.empty:
-                        with flavor_cols[col_idx % 3]:
-                            st.markdown(f"**{flavor} Top Customers**")
-                            flavor_customers = flavor_data.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(3)
-                            flavor_df = pd.DataFrame({
-                                'Client ID': flavor_customers.index,
-                                'Quantity': flavor_customers.values
-                            })
-                            flavor_df.index = range(1, len(flavor_df) + 1)
-                            st.dataframe(flavor_df, use_container_width=True)
-                            col_idx += 1
+            # Analyze each flavor with their specific mg levels
+            analyze_flavor("Cool Mint", 0, ["3mg", "6mg", "9mg", "11mg"])
+            analyze_flavor("Apple Mint", 1, ["3mg", "6mg"])
+            analyze_flavor("Cool Frost", 2, ["9mg", "11mg"])
+            analyze_flavor("Spearmint", 3, ["1.5mg", "3mg", "6mg"])
+            analyze_flavor("Fresh Mint", 4, ["6mg"])
+            analyze_flavor("Citrus", 5, ["3mg", "9mg"])
+            analyze_flavor("Exotic Mango", 6, ["6mg"])
+            analyze_flavor("Deep Freeze", 7, ["11mg"])
+            analyze_flavor("Cool Blueberry", 8, ["6mg", "11mg"])
         
         # Customer Loyalty Analysis
         st.markdown("### 🏅 Customer Loyalty Analysis")
