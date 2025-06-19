@@ -648,6 +648,193 @@ if df is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- Customer Segments ---
+    if 'Client ID' in df.columns and 'Payment Amount (Numeric)' in df.columns:
+        st.markdown("## 🎯 Customer Segments")
+        
+        # Calculate customer metrics
+        customer_metrics = df.groupby('Client ID').agg({
+            'Order ID': 'nunique',
+            'Payment Amount (Numeric)': 'sum',
+            'Date': ['min', 'max'],
+            'Amount': 'sum'
+        }).reset_index()
+        
+        # Flatten column names
+        customer_metrics.columns = ['Client ID', 'Total Orders', 'Total Spent', 'First Order Date', 'Last Order Date', 'Total Quantity']
+        
+        # Calculate days since last order
+        customer_metrics['Days Since Last Order'] = (df['Date'].max() - customer_metrics['Last Order Date']).dt.days
+        
+        # Key Customer Insights
+        st.markdown("### 🏆 Key Customer Insights")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Most Frequent Customer
+        with col1:
+            most_frequent = customer_metrics.loc[customer_metrics['Total Orders'].idxmax()]
+            st.metric(
+                "🔄 Most Frequent Customer",
+                f"{most_frequent['Client ID']}",
+                delta=f"{most_frequent['Total Orders']} orders"
+            )
+        
+        # Latest Customer
+        with col2:
+            latest_customer = customer_metrics.loc[customer_metrics['First Order Date'].idxmax()]
+            st.metric(
+                "🆕 Latest Customer",
+                f"{latest_customer['Client ID']}",
+                delta=f"{latest_customer['Days Since Last Order']} days ago"
+            )
+        
+        # Highest Spending Customer
+        with col3:
+            highest_spender = customer_metrics.loc[customer_metrics['Total Spent'].idxmax()]
+            st.metric(
+                "💰 Top Spender",
+                f"{highest_spender['Client ID']}",
+                delta=f"S/. {highest_spender['Total Spent']:,.2f}"
+            )
+        
+        # Most Recent Activity
+        with col4:
+            most_recent = customer_metrics.loc[customer_metrics['Days Since Last Order'].idxmin()]
+            st.metric(
+                "⏰ Most Recent Order",
+                f"{most_recent['Client ID']}",
+                delta=f"{most_recent['Days Since Last Order']} days ago"
+            )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Top Customers Tables
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📊 Top 10 Customers by Orders")
+            top_by_orders = customer_metrics.nlargest(10, 'Total Orders')[['Client ID', 'Total Orders', 'Total Spent']].copy()
+            top_by_orders['Total Spent'] = top_by_orders['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
+            top_by_orders.index = range(1, len(top_by_orders) + 1)
+            st.dataframe(top_by_orders, use_container_width=True)
+        
+        with col2:
+            st.markdown("### 💎 Top 10 Customers by Spending")
+            top_by_spending = customer_metrics.nlargest(10, 'Total Spent')[['Client ID', 'Total Spent', 'Total Orders']].copy()
+            top_by_spending['Total Spent'] = top_by_spending['Total Spent'].apply(lambda x: f"S/. {x:,.2f}")
+            top_by_spending.index = range(1, len(top_by_spending) + 1)
+            st.dataframe(top_by_spending, use_container_width=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Product-Specific Customer Analysis
+        if 'Product' in df.columns:
+            st.markdown("### 🛒 Top Customers by Product")
+            
+            # Get unique products for analysis
+            products = df['Product'].unique()
+            
+            # Create tabs for different product categories
+            product_tabs = st.tabs(["🌿 All Products", "🧊 Cool Mint", "🍃 Other Flavors"])
+            
+            with product_tabs[0]:
+                # Show top customers for all products combined (already shown above)
+                st.markdown("**Overall top customers are displayed in the tables above.**")
+            
+            with product_tabs[1]:
+                # Cool Mint specific analysis
+                cool_mint_products = [p for p in products if 'Cool Mint' in p]
+                if cool_mint_products:
+                    st.markdown("#### Cool Mint Product Analysis")
+                    
+                    # Create columns for different Cool Mint variants
+                    cool_mint_3mg = df[df['Product'].str.contains('Cool Mint.*3mg', na=False)]
+                    cool_mint_6mg = df[df['Product'].str.contains('Cool Mint.*6mg', na=False)]
+                    cool_mint_9mg = df[df['Product'].str.contains('Cool Mint.*9mg', na=False)]
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        if not cool_mint_3mg.empty:
+                            st.markdown("**Cool Mint 3mg Top Customers**")
+                            cm_3mg_customers = cool_mint_3mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
+                            cm_3mg_df = pd.DataFrame({
+                                'Client ID': cm_3mg_customers.index,
+                                'Quantity': cm_3mg_customers.values
+                            })
+                            cm_3mg_df.index = range(1, len(cm_3mg_df) + 1)
+                            st.dataframe(cm_3mg_df, use_container_width=True)
+                    
+                    with col2:
+                        if not cool_mint_6mg.empty:
+                            st.markdown("**Cool Mint 6mg Top Customers**")
+                            cm_6mg_customers = cool_mint_6mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
+                            cm_6mg_df = pd.DataFrame({
+                                'Client ID': cm_6mg_customers.index,
+                                'Quantity': cm_6mg_customers.values
+                            })
+                            cm_6mg_df.index = range(1, len(cm_6mg_df) + 1)
+                            st.dataframe(cm_6mg_df, use_container_width=True)
+                    
+                    with col3:
+                        if not cool_mint_9mg.empty:
+                            st.markdown("**Cool Mint 9mg Top Customers**")
+                            cm_9mg_customers = cool_mint_9mg.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(5)
+                            cm_9mg_df = pd.DataFrame({
+                                'Client ID': cm_9mg_customers.index,
+                                'Quantity': cm_9mg_customers.values
+                            })
+                            cm_9mg_df.index = range(1, len(cm_9mg_df) + 1)
+                            st.dataframe(cm_9mg_df, use_container_width=True)
+                else:
+                    st.info("No Cool Mint products found in the selected time period.")
+            
+            with product_tabs[2]:
+                # Other flavors analysis
+                other_flavors = ['Apple Mint', 'Spearmint', 'Cool Frost', 'Fresh Mint', 'Citrus', 'Exotic Mango']
+                
+                # Create a grid for other flavors
+                flavor_cols = st.columns(3)
+                col_idx = 0
+                
+                for flavor in other_flavors:
+                    flavor_data = df[df['Product'].str.contains(flavor, na=False)]
+                    if not flavor_data.empty:
+                        with flavor_cols[col_idx % 3]:
+                            st.markdown(f"**{flavor} Top Customers**")
+                            flavor_customers = flavor_data.groupby('Client ID')['Amount'].sum().sort_values(ascending=False).head(3)
+                            flavor_df = pd.DataFrame({
+                                'Client ID': flavor_customers.index,
+                                'Quantity': flavor_customers.values
+                            })
+                            flavor_df.index = range(1, len(flavor_df) + 1)
+                            st.dataframe(flavor_df, use_container_width=True)
+                            col_idx += 1
+        
+        # Customer Loyalty Analysis
+        st.markdown("### 🏅 Customer Loyalty Analysis")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Repeat customers (more than 1 order)
+            repeat_customers = customer_metrics[customer_metrics['Total Orders'] > 1]
+            repeat_rate = len(repeat_customers) / len(customer_metrics) * 100
+            st.metric("🔄 Repeat Customer Rate", f"{repeat_rate:.1f}%")
+        
+        with col2:
+            # Average orders per customer
+            avg_orders = customer_metrics['Total Orders'].mean()
+            st.metric("📦 Avg Orders per Customer", f"{avg_orders:.1f}")
+        
+        with col3:
+            # Average spending per customer
+            avg_spending = customer_metrics['Total Spent'].mean()
+            st.metric("💰 Avg Spending per Customer", f"S/. {avg_spending:.2f}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # --- Weekly Sales Summary Table ---
     if 'Date' in df.columns and 'Payment Amount (Numeric)' in df.columns:
         # Add view selection
