@@ -158,9 +158,6 @@ if df is not None and 'Payment Amount' in df.columns:
     )
 
 if df is not None:
-    # Enhanced Sidebar filters
-    st.sidebar.markdown("### 🎛️ Dashboard Filters")
-    
     # Add export functionality
     st.sidebar.markdown("### 📊 Export Data")
     if st.sidebar.button("📥 Export to CSV"):
@@ -171,8 +168,6 @@ if df is not None:
             file_name=f"machu_pouches_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
-    
-    st.sidebar.markdown("### 🔍 Filter Options")
 
     # --- Chronological Time Frame Filter ---
     time_frame = st.sidebar.radio(
@@ -215,16 +210,6 @@ if df is not None:
         else:  # All Time
             mask = pd.Series([True] * len(df))
         df = df[mask]
-
-    # Product filter
-    if 'Product' in df.columns:
-        products = df['Product'].unique()
-        selected_products = st.sidebar.multiselect(
-            "Select Products",
-            options=products,
-            default=products
-        )
-        df = df[df['Product'].isin(selected_products)]
 
     # --- ENHANCED KPIs WITH TRENDS ---
     st.markdown("## 📈 Key Performance Indicators")
