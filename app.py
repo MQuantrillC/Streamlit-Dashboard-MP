@@ -82,6 +82,64 @@ def connect_to_sheets():
         st.error("Please check your Streamlit secrets configuration.")
         return None
 
+# Helper function to load worksheet data with duplicate header handling
+def load_worksheet_data(worksheet, use_records=True):
+    """
+    Load data from a worksheet, handling duplicate headers gracefully.
+    
+    Args:
+        worksheet: gspread worksheet object
+        use_records: If True, try get_all_records() first; if False, use get_all_values()
+    
+    Returns:
+        pandas DataFrame or None if loading fails
+    """
+    try:
+        if use_records:
+            try:
+                # Try the standard method first (faster and cleaner)
+                return pd.DataFrame(worksheet.get_all_records())
+            except Exception as e:
+                # If it fails due to duplicate headers, fall back to manual parsing
+                if "header row in the worksheet is not unique" in str(e).lower():
+                    # Get all values and handle duplicates manually
+                    all_values = worksheet.get_all_values()
+                    if not all_values:
+                        return None
+                    
+                    headers = all_values[0]
+                    data_rows = all_values[1:] if len(all_values) > 1 else []
+                    
+                    # Handle duplicate headers by appending suffix
+                    seen = {}
+                    unique_headers = []
+                    for header in headers:
+                        if header in seen:
+                            seen[header] += 1
+                            unique_headers.append(f"{header}_{seen[header]}")
+                        else:
+                            seen[header] = 0
+                            unique_headers.append(header)
+                    
+                    # Create DataFrame with unique headers
+                    if data_rows:
+                        df = pd.DataFrame(data_rows, columns=unique_headers)
+                    else:
+                        df = pd.DataFrame(columns=unique_headers)
+                    
+                    return df
+                else:
+                    # Re-raise if it's a different error
+                    raise
+        else:
+            # Directly use get_all_values() for sheets that don't have standard record format
+            all_values = worksheet.get_all_values()
+            if not all_values:
+                return None
+            return pd.DataFrame(all_values)
+    except Exception as e:
+        raise e
+
 # Comprehensive data loading with caching
 @st.cache_data(ttl=300)
 def load_all_data():
@@ -102,31 +160,31 @@ def load_all_data():
         
         try:
             worksheet = spreadsheet.get_worksheet(0)
-            main_data = pd.DataFrame(worksheet.get_all_records())
+            main_data = load_worksheet_data(worksheet)
         except Exception as e:
             st.warning(f"Could not load main data: {e}")
             
         try:
             sales_sheet = spreadsheet.worksheet('Sales')
-            sales_data = pd.DataFrame(sales_sheet.get_all_records())
+            sales_data = load_worksheet_data(sales_sheet)
         except Exception as e:
             st.warning(f"Could not load Sales sheet: {e}")
             
         try:
             inventory_sheet = spreadsheet.worksheet('Inventory')
-            inventory_data = pd.DataFrame(inventory_sheet.get_all_values())
+            inventory_data = load_worksheet_data(inventory_sheet, use_records=False)
         except Exception as e:
             st.warning(f"Could not load Inventory sheet: {e}")
             
         try:
             orders_sheet = spreadsheet.worksheet('Orders')
-            orders_data = pd.DataFrame(orders_sheet.get_all_records())
+            orders_data = load_worksheet_data(orders_sheet)
         except Exception as e:
             st.warning(f"Could not load Orders sheet: {e}")
             
         try:
             finances_sheet = spreadsheet.worksheet('Finances')
-            finances_data = pd.DataFrame(finances_sheet.get_all_records())
+            finances_data = load_worksheet_data(finances_sheet)
         except Exception as e:
             st.warning(f"Could not load Finances sheet: {e}")
             
@@ -435,10 +493,9 @@ if df is not None:
                     client = connect_to_sheets()
                     if client:
                         sales_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Sales')
-                        sales_data = sales_sheet.get_all_records()
-                        sales_df = pd.DataFrame(sales_data)
+                        sales_df = load_worksheet_data(sales_sheet)
                         
-                        if 'Channel' in sales_df.columns and 'Payment Amount' in sales_df.columns:
+                        if sales_df is not None and 'Channel' in sales_df.columns and 'Payment Amount' in sales_df.columns:
                             # Process the data similar to above
                             sales_df['Payment Amount (Numeric)'] = (
                                 sales_df['Payment Amount']
@@ -1012,20 +1069,49 @@ if df is not None:
                 # Add Balance column
                 monthly_summary['Balance'] = monthly_summary['Sales_Amount'] - monthly_summary['Sales_Amount']
 
-                # Define breakdown_dict immediately after monthly_summary
-                breakdown_dict = {}
-                for i, row in monthly_summary.iterrows():
-                    month_str = row['Month']
-                    month_dt = pd.to_datetime(month_str)
-                    month_mask = (finances_df['Month'] == month_dt)
-                    month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
-                    month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
-                    rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
-                    exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
-                    breakdown_dict[month_str] = {
-                        'revenue': rev,
-                        'expense': exp
-                    }
+                # Load finances data for breakdown
+                try:
+                    client = connect_to_sheets()
+                    if client:
+                        spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
+                        finances_ws = spreadsheet.worksheet('Finances')
+                        finances_df_breakdown = load_worksheet_data(finances_ws)
+                        
+                        if finances_df_breakdown is not None:
+                            finances_df_breakdown = finances_df_breakdown.rename(columns=lambda x: x.strip())
+                            finances_df_breakdown = finances_df_breakdown[finances_df_breakdown['Amount (Local Currency)'].astype(str).str.strip() != '']
+                            finances_df_breakdown['Amount (Local Currency)'] = (
+                                finances_df_breakdown['Amount (Local Currency)']
+                                .astype(str)
+                                .str.replace('S/.', '', regex=False)
+                                .str.replace(',', '', regex=False)
+                                .str.extract(r'([\d\.]+)')[0]
+                                .astype(float)
+                            )
+                            finances_df_breakdown['Date'] = pd.to_datetime(finances_df_breakdown['Date'], errors='coerce')
+                            finances_df_breakdown = finances_df_breakdown.dropna(subset=['Date'])
+                            finances_df_breakdown['Month'] = finances_df_breakdown['Date'].dt.to_period('M').dt.to_timestamp()
+                            
+                            # Define breakdown_dict
+                            breakdown_dict = {}
+                            for i, row in monthly_summary.iterrows():
+                                month_str = row['Month']
+                                month_dt = pd.to_datetime(month_str)
+                                month_mask = (finances_df_breakdown['Month'] == month_dt)
+                                month_income = finances_df_breakdown[(finances_df_breakdown['+/-'] == 'Income') & month_mask]
+                                month_expense = finances_df_breakdown[(finances_df_breakdown['+/-'] == 'Expense') & month_mask]
+                                rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                                exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                                breakdown_dict[month_str] = {
+                                    'revenue': rev,
+                                    'expense': exp
+                                }
+                        else:
+                            breakdown_dict = {}
+                    else:
+                        breakdown_dict = {}
+                except Exception as e:
+                    breakdown_dict = {}
 
                 # Show summary table with Balance column and colored Balance cells
                 def balance_color(val):
@@ -1316,13 +1402,12 @@ if df is not None:
         client = connect_to_sheets()
         if client:
             orders_sheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw').worksheet('Orders')
-            orders_data = orders_sheet.get_all_records()
-            orders_df = pd.DataFrame(orders_data)
+            orders_df = load_worksheet_data(orders_sheet)
 
             st.markdown('## 📦 Order Analytics')
 
             # Ensure columns are present and numeric
-            if 'Order #' in orders_df.columns and 'Days' in orders_df.columns:
+            if orders_df is not None and 'Order #' in orders_df.columns and 'Days' in orders_df.columns:
                 orders_df = orders_df.copy()
                 orders_df = orders_df[orders_df['Order #'].astype(str).str.isnumeric() & orders_df['Days'].astype(str).str.isnumeric()]
                 orders_df['Order #'] = orders_df['Order #'].astype(int)
@@ -1438,232 +1523,234 @@ if df is not None:
         if client:
             spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
             finances_ws = spreadsheet.worksheet('Finances')
-            finances_data = finances_ws.get_all_records()
-            finances_df = pd.DataFrame(finances_data)
+            finances_df = load_worksheet_data(finances_ws)
 
             # Clean and prepare data
-            finances_df = finances_df.rename(columns=lambda x: x.strip())
-            finances_df = finances_df[finances_df['Amount (Local Currency)'].astype(str).str.strip() != '']
-            finances_df['Amount (Local Currency)'] = (
-                finances_df['Amount (Local Currency)']
-                .astype(str)
-                .str.replace('S/.', '', regex=False)
-                .str.replace(',', '', regex=False)
-                .str.extract(r'([\d\.]+)')[0]
-                .astype(float)
-            )
+            if finances_df is not None:
+                finances_df = finances_df.rename(columns=lambda x: x.strip())
+                finances_df = finances_df[finances_df['Amount (Local Currency)'].astype(str).str.strip() != '']
+                finances_df['Amount (Local Currency)'] = (
+                    finances_df['Amount (Local Currency)']
+                    .astype(str)
+                    .str.replace('S/.', '', regex=False)
+                    .str.replace(',', '', regex=False)
+                    .str.extract(r'([\d\.]+)')[0]
+                    .astype(float)
+                )
 
-            # Separate income and expenses
-            income_df = finances_df[finances_df['+/-'] == 'Income']
-            expense_df = finances_df[finances_df['+/-'] == 'Expense']
+                # Separate income and expenses
+                income_df = finances_df[finances_df['+/-'] == 'Income']
+                expense_df = finances_df[finances_df['+/-'] == 'Expense']
 
-            # Revenue by product/concept
-            revenue_by_product = (
-                income_df.groupby('Concept')['Amount (Local Currency)']
-                .sum()
-                .sort_values(ascending=False)
-            )
-            revenue_total = revenue_by_product.sum()
-            revenue_percent = (revenue_by_product / revenue_total * 100).round(2)
+                # Revenue by product/concept
+                revenue_by_product = (
+                    income_df.groupby('Concept')['Amount (Local Currency)']
+                    .sum()
+                    .sort_values(ascending=False)
+                )
+                revenue_total = revenue_by_product.sum()
+                revenue_percent = (revenue_by_product / revenue_total * 100).round(2)
 
-            # Expenses by concept
-            expenses_by_concept = (
-                expense_df.groupby('Concept')['Amount (Local Currency)']
-                .sum()
-                .sort_values(ascending=False)
-            )
-            expenses_total = expenses_by_concept.sum()
-            expenses_percent = (expenses_by_concept / expenses_total * 100).round(2)
+                # Expenses by concept
+                expenses_by_concept = (
+                    expense_df.groupby('Concept')['Amount (Local Currency)']
+                    .sum()
+                    .sort_values(ascending=False)
+                )
+                expenses_total = expenses_by_concept.sum()
+                expenses_percent = (expenses_by_concept / expenses_total * 100).round(2)
 
-            # Totals and metrics
-            net_result = revenue_total - expenses_total
-            net_margin_pct = (net_result / revenue_total * 100) if revenue_total else np.nan
+                # Totals and metrics
+                net_result = revenue_total - expenses_total
+                net_margin_pct = (net_result / revenue_total * 100) if revenue_total else np.nan
 
-            # Header metrics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Revenue", f"S/. {revenue_total:,.2f}")
-            with col2:
-                st.metric("Total Expenses", f"S/. {expenses_total:,.2f}")
-            with col3:
-                st.metric("Net Profit Margin", f"{net_margin_pct:.2f}%")
+                # Header metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Revenue", f"S/. {revenue_total:,.2f}")
+                with col2:
+                    st.metric("Total Expenses", f"S/. {expenses_total:,.2f}")
+                with col3:
+                    st.metric("Net Profit Margin", f"{net_margin_pct:.2f}%")
 
-            # Build enhanced HTML table for display
-            html = """
-            <style>
-            .fin-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-            .fin-table th, .fin-table td { padding: 4px 8px; text-align: left; }
-            .fin-header { font-size: 1.15em; font-weight: bold; background: #222; color: #fff; }
-            .fin-revenue-header { background: #007f3f; color: #fff; font-weight: bold; font-size: 1.05em; }
-            .fin-revenue { background: #e6ffe6; color: #222; }
-            .fin-revenue-total { background: #39d353; color: #fff; font-weight: bold; }
-            .fin-expenses-header { background: #b30000; color: #fff; font-weight: bold; font-size: 1.05em; }
-            .fin-expense { background: #ffe6e6; color: #222; }
-            .fin-expense-total { background: #ff6666; color: #fff; font-weight: bold; }
-            .fin-net-profit { background: #b3d1ff; color: #222; font-weight: bold; }
-            .fin-spacer { background: #222; color: #222; height: 8px; }
-            </style>
-            <table class="fin-table">
-                <tr class="fin-header">
-                    <th>Item</th>
-                    <th>Amount</th>
-                    <th>% of Total</th>
-                </tr>
-            """
-            # Revenue section
-            html += '<tr class="fin-revenue-header"><td colspan="3">REVENUE</td></tr>'
-            for product, value in revenue_by_product.items():
-                html += f'<tr class="fin-revenue"><td>{product}</td><td>S/. {value:,.2f}</td><td>{revenue_percent[product]:.2f}%</td></tr>'
-            html += f'<tr class="fin-revenue-total"><td>Total Revenue</td><td>S/. {revenue_total:,.2f}</td><td>100.00%</td></tr>'
-            html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
-            # Expenses section
-            html += '<tr class="fin-expenses-header"><td colspan="3">EXPENSES</td></tr>'
-            for concept, value in expenses_by_concept.items():
-                html += f'<tr class="fin-expense"><td>{concept}</td><td>S/. {value:,.2f}</td><td>{expenses_percent[concept]:.2f}%</td></tr>'
-            html += f'<tr class="fin-expense-total"><td>Total Expenses</td><td>S/. {expenses_total:,.2f}</td><td>100.00%</td></tr>'
-            html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
-            # Net profit row
-            html += f'<tr class="fin-net-profit"><td>Net Profit (Margin)</td><td>S/. {net_result:,.2f}</td><td>{net_margin_pct:.2f}%</td></tr>'
-            html += '</table>'
+                # Build enhanced HTML table for display
+                html = """
+                <style>
+                .fin-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+                .fin-table th, .fin-table td { padding: 4px 8px; text-align: left; }
+                .fin-header { font-size: 1.15em; font-weight: bold; background: #222; color: #fff; }
+                .fin-revenue-header { background: #007f3f; color: #fff; font-weight: bold; font-size: 1.05em; }
+                .fin-revenue { background: #e6ffe6; color: #222; }
+                .fin-revenue-total { background: #39d353; color: #fff; font-weight: bold; }
+                .fin-expenses-header { background: #b30000; color: #fff; font-weight: bold; font-size: 1.05em; }
+                .fin-expense { background: #ffe6e6; color: #222; }
+                .fin-expense-total { background: #ff6666; color: #fff; font-weight: bold; }
+                .fin-net-profit { background: #b3d1ff; color: #222; font-weight: bold; }
+                .fin-spacer { background: #222; color: #222; height: 8px; }
+                </style>
+                <table class="fin-table">
+                    <tr class="fin-header">
+                        <th>Item</th>
+                        <th>Amount</th>
+                        <th>% of Total</th>
+                    </tr>
+                """
+                # Revenue section
+                html += '<tr class="fin-revenue-header"><td colspan="3">REVENUE</td></tr>'
+                for product, value in revenue_by_product.items():
+                    html += f'<tr class="fin-revenue"><td>{product}</td><td>S/. {value:,.2f}</td><td>{revenue_percent[product]:.2f}%</td></tr>'
+                html += f'<tr class="fin-revenue-total"><td>Total Revenue</td><td>S/. {revenue_total:,.2f}</td><td>100.00%</td></tr>'
+                html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
+                # Expenses section
+                html += '<tr class="fin-expenses-header"><td colspan="3">EXPENSES</td></tr>'
+                for concept, value in expenses_by_concept.items():
+                    html += f'<tr class="fin-expense"><td>{concept}</td><td>S/. {value:,.2f}</td><td>{expenses_percent[concept]:.2f}%</td></tr>'
+                html += f'<tr class="fin-expense-total"><td>Total Expenses</td><td>S/. {expenses_total:,.2f}</td><td>100.00%</td></tr>'
+                html += '<tr class="fin-spacer"><td colspan="3"></td></tr>'
+                # Net profit row
+                html += f'<tr class="fin-net-profit"><td>Net Profit (Margin)</td><td>S/. {net_result:,.2f}</td><td>{net_margin_pct:.2f}%</td></tr>'
+                html += '</table>'
 
-            st.markdown("## 💰 Financial Results Statement")
-            st.markdown(html, unsafe_allow_html=True)
+                st.markdown("## 💰 Financial Results Statement")
+                st.markdown(html, unsafe_allow_html=True)
 
-            # --- Monthly Revenue and Expenses Trend Chart ---
-            finances_df['Date'] = pd.to_datetime(finances_df['Date'], errors='coerce')
-            finances_df = finances_df.dropna(subset=['Date'])
-            finances_df['Month'] = finances_df['Date'].dt.to_period('M').dt.to_timestamp()
+                # --- Monthly Revenue and Expenses Trend Chart ---
+                finances_df['Date'] = pd.to_datetime(finances_df['Date'], errors='coerce')
+                finances_df = finances_df.dropna(subset=['Date'])
+                finances_df['Month'] = finances_df['Date'].dt.to_period('M').dt.to_timestamp()
 
-            monthly_income = finances_df[finances_df['+/-'] == 'Income'].groupby('Month')['Amount (Local Currency)'].sum()
-            monthly_expense = finances_df[finances_df['+/-'] == 'Expense'].groupby('Month')['Amount (Local Currency)'].sum()
+                monthly_income = finances_df[finances_df['+/-'] == 'Income'].groupby('Month')['Amount (Local Currency)'].sum()
+                monthly_expense = finances_df[finances_df['+/-'] == 'Expense'].groupby('Month')['Amount (Local Currency)'].sum()
 
-            # Align both series to the same index (all months present)
-            all_months = pd.date_range(start=finances_df['Month'].min(), end=finances_df['Month'].max(), freq='MS')
-            monthly_income = monthly_income.reindex(all_months, fill_value=0)
-            monthly_expense = monthly_expense.reindex(all_months, fill_value=0)
+                # Align both series to the same index (all months present)
+                all_months = pd.date_range(start=finances_df['Month'].min(), end=finances_df['Month'].max(), freq='MS')
+                monthly_income = monthly_income.reindex(all_months, fill_value=0)
+                monthly_expense = monthly_expense.reindex(all_months, fill_value=0)
 
-            import plotly.graph_objects as go
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=monthly_income.index, y=monthly_income.values, mode='lines+markers', name='Revenue', line=dict(color='green', width=3)))
-            fig.add_trace(go.Scatter(x=monthly_expense.index, y=monthly_expense.values, mode='lines+markers', name='Expenses', line=dict(color='red', width=3)))
-            fig.update_layout(
-                title='Monthly Revenue and Expenses',
-                xaxis_title='Month',
-                yaxis_title='Amount (S/.)',
-                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(size=16)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                import plotly.graph_objects as go
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=monthly_income.index, y=monthly_income.values, mode='lines+markers', name='Revenue', line=dict(color='green', width=3)))
+                fig.add_trace(go.Scatter(x=monthly_expense.index, y=monthly_expense.values, mode='lines+markers', name='Expenses', line=dict(color='red', width=3)))
+                fig.update_layout(
+                    title='Monthly Revenue and Expenses',
+                    xaxis_title='Month',
+                    yaxis_title='Amount (S/.)',
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font=dict(size=16)
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
-            # --- Monthly Revenue and Expense Table with Selectbox Breakdown ---
-            st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
-            # Prepare summary data
-            monthly_summary = pd.DataFrame({
-                'Month': monthly_income.index.strftime('%B %Y'),
-                'Revenue': monthly_income.values,
-                'Expenses': monthly_expense.values
-            })
-            # Add Balance column
-            monthly_summary['Balance'] = monthly_summary['Revenue'] - monthly_summary['Expenses']
+                # --- Monthly Revenue and Expense Table with Selectbox Breakdown ---
+                st.markdown("## 📅 Monthly Revenue and Expense Breakdown")
+                # Prepare summary data
+                monthly_summary = pd.DataFrame({
+                    'Month': monthly_income.index.strftime('%B %Y'),
+                    'Revenue': monthly_income.values,
+                    'Expenses': monthly_expense.values
+                })
+                # Add Balance column
+                monthly_summary['Balance'] = monthly_summary['Revenue'] - monthly_summary['Expenses']
 
-            # Define breakdown_dict immediately after monthly_summary
-            breakdown_dict = {}
-            for i, row in monthly_summary.iterrows():
-                month_str = row['Month']
-                month_dt = pd.to_datetime(month_str)
-                month_mask = (finances_df['Month'] == month_dt)
-                month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
-                month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
-                rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
-                exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
-                breakdown_dict[month_str] = {
-                    'revenue': rev,
-                    'expense': exp
-                }
+                # Define breakdown_dict immediately after monthly_summary
+                breakdown_dict = {}
+                for i, row in monthly_summary.iterrows():
+                    month_str = row['Month']
+                    month_dt = pd.to_datetime(month_str)
+                    month_mask = (finances_df['Month'] == month_dt)
+                    month_income = finances_df[(finances_df['+/-'] == 'Income') & month_mask]
+                    month_expense = finances_df[(finances_df['+/-'] == 'Expense') & month_mask]
+                    rev = month_income.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                    exp = month_expense.groupby('Concept')['Amount (Local Currency)'].sum().reset_index()
+                    breakdown_dict[month_str] = {
+                        'revenue': rev,
+                        'expense': exp
+                    }
 
-            # Show summary table with Balance column and colored Balance cells
-            def balance_color(val):
-                try:
-                    if val > 0:
-                        return 'color: #fff; background-color: #39d353; font-weight: bold;'
-                    elif val < 0:
-                        return 'color: #fff; background-color: #ff6666; font-weight: bold;'
-                    else:
+                # Show summary table with Balance column and colored Balance cells
+                def balance_color(val):
+                    try:
+                        if val > 0:
+                            return 'color: #fff; background-color: #39d353; font-weight: bold;'
+                        elif val < 0:
+                            return 'color: #fff; background-color: #ff6666; font-weight: bold;'
+                        else:
+                            return ''
+                    except:
                         return ''
-                except:
-                    return ''
 
-            styled_monthly_summary = monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}).applymap(balance_color, subset=['Balance'])
-            st.table(styled_monthly_summary)
-            month_options = monthly_summary['Month'].tolist()
-            selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
+                styled_monthly_summary = monthly_summary.style.format({'Revenue': 'S/. {0:,.2f}', 'Expenses': 'S/. {0:,.2f}', 'Balance': 'S/. {0:,.2f}'}).applymap(balance_color, subset=['Balance'])
+                st.table(styled_monthly_summary)
+                month_options = monthly_summary['Month'].tolist()
+                selected_month = st.selectbox('Select a month to see the breakdown:', month_options)
 
-            if selected_month in breakdown_dict:
-                st.markdown(f"### Breakdown for {selected_month}")
-                # --- Revenue Table (Green, Smaller, With %, Descending Order) ---
-                st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
-                rev = breakdown_dict[selected_month]['revenue']
-                if isinstance(rev, pd.DataFrame) and not rev.empty:
-                    rev = rev.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
-                    rev_total = rev['Amount (Local Currency)'].sum()
-                    rev = rev.copy()
-                    rev['% of Total'] = rev['Amount (Local Currency)'] / rev_total * 100
-                    rev_html = """
-                    <style>
-                    .rev-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-                    .rev-table th, .rev-table td { padding: 4px 8px; text-align: left; }
-                    .rev-header { background: #007f3f; color: #fff; font-weight: bold; }
-                    .rev-row { background: #e6ffe6; color: #222; }
-                    .rev-total { background: #39d353; color: #fff; font-weight: bold; }
-                    </style>
-                    <table class="rev-table">
-                        <tr class="rev-header">
-                            <th>Concept</th>
-                            <th>Amount (Local Currency)</th>
-                            <th>% of Total</th>
-                        </tr>
-                    """
-                    for _, row in rev.iterrows():
-                        rev_html += f'<tr class="rev-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td><td>{row["% of Total"]:.2f}%</td></tr>'
-                    rev_html += f'<tr class="rev-total"><td>Total Revenue</td><td>S/. {rev_total:,.2f}</td><td>100.00%</td></tr>'
-                    rev_html += '</table>'
-                    st.markdown(rev_html, unsafe_allow_html=True)
+                if selected_month in breakdown_dict:
+                    st.markdown(f"### Breakdown for {selected_month}")
+                    # --- Revenue Table (Green, Smaller, With %, Descending Order) ---
+                    st.markdown("<b>Revenue</b>", unsafe_allow_html=True)
+                    rev = breakdown_dict[selected_month]['revenue']
+                    if isinstance(rev, pd.DataFrame) and not rev.empty:
+                        rev = rev.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
+                        rev_total = rev['Amount (Local Currency)'].sum()
+                        rev = rev.copy()
+                        rev['% of Total'] = rev['Amount (Local Currency)'] / rev_total * 100
+                        rev_html = """
+                        <style>
+                        .rev-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+                        .rev-table th, .rev-table td { padding: 4px 8px; text-align: left; }
+                        .rev-header { background: #007f3f; color: #fff; font-weight: bold; }
+                        .rev-row { background: #e6ffe6; color: #222; }
+                        .rev-total { background: #39d353; color: #fff; font-weight: bold; }
+                        </style>
+                        <table class="rev-table">
+                            <tr class="rev-header">
+                                <th>Concept</th>
+                                <th>Amount (Local Currency)</th>
+                                <th>% of Total</th>
+                            </tr>
+                        """
+                        for _, row in rev.iterrows():
+                            rev_html += f'<tr class="rev-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td><td>{row["% of Total"]:.2f}%</td></tr>'
+                        rev_html += f'<tr class="rev-total"><td>Total Revenue</td><td>S/. {rev_total:,.2f}</td><td>100.00%</td></tr>'
+                        rev_html += '</table>'
+                        st.markdown(rev_html, unsafe_allow_html=True)
+                    else:
+                        st.write("No revenue for this month.")
+                    # --- Expenses Table (Red, Smaller, With %, Descending Order) ---
+                    st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
+                    exp = breakdown_dict[selected_month]['expense']
+                    if isinstance(exp, pd.DataFrame) and not exp.empty:
+                        exp = exp.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
+                        exp_total = exp['Amount (Local Currency)'].sum()
+                        exp = exp.copy()
+                        exp['% of Total'] = exp['Amount (Local Currency)'] / exp_total * 100
+                        exp_html = """
+                        <style>
+                        .exp-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+                        .exp-table th, .exp-table td { padding: 4px 8px; text-align: left; }
+                        .exp-header { background: #b30000; color: #fff; font-weight: bold; }
+                        .exp-row { background: #ffe6e6; color: #222; }
+                        .exp-total { background: #ff6666; color: #fff; font-weight: bold; }
+                        </style>
+                        <table class="exp-table">
+                            <tr class="exp-header">
+                                <th>Concept</th>
+                                <th>Amount (Local Currency)</th>
+                                <th>% of Total</th>
+                            </tr>
+                        """
+                        for _, row in exp.iterrows():
+                            exp_html += f'<tr class="exp-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td><td>{row["% of Total"]:.2f}%</td></tr>'
+                        exp_html += f'<tr class="exp-total"><td>Total Expenses</td><td>S/. {exp_total:,.2f}</td><td>100.00%</td></tr>'
+                        exp_html += '</table>'
+                        st.markdown(exp_html, unsafe_allow_html=True)
+                    else:
+                        st.write("No expenses for this month.")
                 else:
-                    st.write("No revenue for this month.")
-                # --- Expenses Table (Red, Smaller, With %, Descending Order) ---
-                st.markdown("<b>Expenses</b>", unsafe_allow_html=True)
-                exp = breakdown_dict[selected_month]['expense']
-                if isinstance(exp, pd.DataFrame) and not exp.empty:
-                    exp = exp.sort_values('Amount (Local Currency)', ascending=False).reset_index(drop=True)
-                    exp_total = exp['Amount (Local Currency)'].sum()
-                    exp = exp.copy()
-                    exp['% of Total'] = exp['Amount (Local Currency)'] / exp_total * 100
-                    exp_html = """
-                    <style>
-                    .exp-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-                    .exp-table th, .exp-table td { padding: 4px 8px; text-align: left; }
-                    .exp-header { background: #b30000; color: #fff; font-weight: bold; }
-                    .exp-row { background: #ffe6e6; color: #222; }
-                    .exp-total { background: #ff6666; color: #fff; font-weight: bold; }
-                    </style>
-                    <table class="exp-table">
-                        <tr class="exp-header">
-                            <th>Concept</th>
-                            <th>Amount (Local Currency)</th>
-                            <th>% of Total</th>
-                        </tr>
-                    """
-                    for _, row in exp.iterrows():
-                        exp_html += f'<tr class="exp-row"><td>{row["Concept"]}</td><td>S/. {row["Amount (Local Currency)"]:,.2f}</td><td>{row["% of Total"]:.2f}%</td></tr>'
-                    exp_html += f'<tr class="exp-total"><td>Total Expenses</td><td>S/. {exp_total:,.2f}</td><td>100.00%</td></tr>'
-                    exp_html += '</table>'
-                    st.markdown(exp_html, unsafe_allow_html=True)
-                else:
-                    st.write("No expenses for this month.")
+                    st.info("No breakdown available for the selected month.")
             else:
-                st.info("No breakdown available for the selected month.")
+                st.warning("Could not load finances data.")
 
     except Exception as e:
         st.warning(f'Could not load financial analytics: {e}')
@@ -1676,8 +1763,7 @@ if df is not None:
             if client:
                 spreadsheet = client.open_by_key('1WLn7DH3F1Sm5ZSEHgWVEILWvvjFRsrE0b9xKrYU43Hw')
                 finances_ws = spreadsheet.worksheet('Finances')
-                finances_data = finances_ws.get_all_records()
-                finances_df = pd.DataFrame(finances_data)
+                finances_df = load_worksheet_data(finances_ws)
                 return finances_df
         except Exception as e:
             st.error(f"Error loading finances data: {str(e)}")
