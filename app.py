@@ -248,7 +248,10 @@ if df is not None:
 
     # Date conversion and filtering
     if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
+        # Handle mixed date formats (e.g., "17-Dec-2024" and "17/12/2024")
+        df['Date'] = pd.to_datetime(df['Date'], format='mixed', errors='coerce', dayfirst=True)
+        # Drop rows where date parsing failed
+        df = df.dropna(subset=['Date'])
         today = pd.Timestamp.today().normalize()
         
         # Add custom date range picker
@@ -310,7 +313,8 @@ if df is not None:
             # Load all data for comparison
             all_data = load_data()
             if all_data is not None and 'Date' in all_data.columns:
-                all_data['Date'] = pd.to_datetime(all_data['Date'])
+                all_data['Date'] = pd.to_datetime(all_data['Date'], format='mixed', errors='coerce', dayfirst=True)
+                all_data = all_data.dropna(subset=['Date'])
                 all_data['Payment Amount (Numeric)'] = (
                     all_data['Payment Amount']
                     .astype(str)
@@ -911,7 +915,11 @@ if df is not None:
 
         summary_df = df.copy()
         # Ensure dates are datetime and normalized to midnight
-        summary_df['Date'] = pd.to_datetime(summary_df['Date']).dt.normalize()
+        # Date should already be parsed from df, but normalize to handle any edge cases
+        if summary_df['Date'].dtype == 'object':
+            summary_df['Date'] = pd.to_datetime(summary_df['Date'], format='mixed', errors='coerce', dayfirst=True).dt.normalize()
+        else:
+            summary_df['Date'] = pd.to_datetime(summary_df['Date']).dt.normalize()
 
         if summary_view == "Weekly":
             # Weekly Summary Logic
@@ -1088,7 +1096,7 @@ if df is not None:
                                 .str.extract(r'([\d\.]+)')[0]
                                 .astype(float)
                             )
-                            finances_df_breakdown['Date'] = pd.to_datetime(finances_df_breakdown['Date'], errors='coerce')
+                            finances_df_breakdown['Date'] = pd.to_datetime(finances_df_breakdown['Date'], format='mixed', errors='coerce', dayfirst=True)
                             finances_df_breakdown = finances_df_breakdown.dropna(subset=['Date'])
                             finances_df_breakdown['Month'] = finances_df_breakdown['Date'].dt.to_period('M').dt.to_timestamp()
                             
@@ -1615,7 +1623,7 @@ if df is not None:
                 st.markdown(html, unsafe_allow_html=True)
 
                 # --- Monthly Revenue and Expenses Trend Chart ---
-                finances_df['Date'] = pd.to_datetime(finances_df['Date'], errors='coerce')
+                finances_df['Date'] = pd.to_datetime(finances_df['Date'], format='mixed', errors='coerce', dayfirst=True)
                 finances_df = finances_df.dropna(subset=['Date'])
                 finances_df['Month'] = finances_df['Date'].dt.to_period('M').dt.to_timestamp()
 
